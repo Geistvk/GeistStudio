@@ -1,29 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
-namespace GeistStudio
+namespace GeistStudio   // muss 1:1 übereinstimmen
 {
-    public partial class GeistStudioWin : Form
-    {
-        public GeistStudioWin()
-        {
-            InitializeComponent();
-            addComponents();
-        }
-
-        private void GeistStudioWin_Load(object sender, EventArgs e)
-        {
-
-        }
-    }
-
     public class GeistStudioColorTable : ProfessionalColorTable
     {
         private static readonly Color Background = Color.FromArgb(30, 27, 58);

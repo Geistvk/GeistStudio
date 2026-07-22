@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using System.IO;
+using GeistStudio;
 
 namespace GeistStudio
 {
@@ -56,10 +57,24 @@ namespace GeistStudio
             IntPtr hObject);
 
 
-        private const int GWL_EXSTYLE = -20;
-        private const int WS_EX_LAYERED = 0x80000;
-        private const uint LWA_COLORKEY = 0x1;
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        private const int EM_SHOWSCROLLBAR = 0x0460;
+        private const int SB_HORZ = 0;
+        private const int SB_VERT = 1;
+
+        private const int GWL_STYLE = -16;
+        private const int WS_HSCROLL = 0x00100000;
+        private const int WS_VSCROLL = 0x00200000;
+        private const int EM_SETTARGETDEVICE = 0x0448;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_FRAMECHANGED = 0x0020;
         private void InitializeStyledToolTip()
         {
             this.StyledToolTip = new System.Windows.Forms.ToolTip();
@@ -207,13 +222,14 @@ namespace GeistStudio
             return IntPtr.Zero;
         }
 
-        private ToolStripMenuItem CreateMenuItem(string name, string description)
+        private ToolStripMenuItem CreateMenuItem(string name, string description, Action func)
         {
             ToolStripMenuItem item = new ToolStripMenuItem(name);
             item.AutoToolTip = false;
 
             item.MouseEnter += (s, e) => ShowStyledToolTip(description);
             item.MouseLeave += (s, e) => this.StyledToolTip.Hide(this.MainMenu);
+            item.Click += (s, e) => func();
 
             return item;
         }
@@ -240,21 +256,22 @@ namespace GeistStudio
                     continue;
                 }
 
-                if (item is Tuple<string, string> entry)
+                if (item is Tuple<string, string, Action> entry)
                 {
                     menu.DropDownItems.Add(
                         CreateMenuItem(
                             entry.Item1,
-                            entry.Item2
+                            entry.Item2,
+                            entry.Item3
                         )
                     );
                 }
             }
         }
 
-        private Tuple<string, string> MenuItem(string name, string description)
+        private Tuple<string, string, Action> MenuItem(string name, string description, Action func)
         {
-            return new Tuple<string, string>(name, description);
+            return new Tuple<string, string, Action>(name, description, func);
         }
 
         private void addMenuComponents()
@@ -264,154 +281,162 @@ namespace GeistStudio
             // 
             AddMenuItems(
                 this.FileMenu,
-                MenuItem("New", "Creates a new empty workspace."),
-                MenuItem("New File", "Creates a new source file."),
-                MenuItem("New Project", "Creates a new GeistStudio project."),
+                MenuItem("New", "Creates a new empty workspace.", () => { }),
+                MenuItem("New File", "Creates a new source file.", () => WelcomeNewButton_Click(null, null)),
+                MenuItem("New Project", "Creates a new GeistStudio project.", () => { }),
                 "-",
-                MenuItem("Open...", "Opens an existing file."),
-                MenuItem("Open Folder...", "Opens a folder as a project."),
-                MenuItem("Recent Files", "Shows recently opened files."),
+                MenuItem("Open...", "Opens an existing file.", () => WelcomeOpenButton_Click(null, null)),
+                MenuItem("Open Folder...", "Opens a folder as a project.", () => { }),
+                MenuItem("Recent Files", "Shows recently opened files.", () => { }),
                 "-",
-                MenuItem("Save", "Saves the current file."),
-                MenuItem("Save As...", "Saves the current file with a different name."),
-                MenuItem("Save All", "Saves all opened files."),
+                MenuItem("Save", "Saves the current file.", () => Util.HandleFileAction(this, "save")),
+                MenuItem("Save As...", "Saves the current file with a different name.", () => { }),
+                MenuItem("Save All", "Saves all opened files.", () => Util.HandleFileAction(this, "save", true)),
                 "-",
-                MenuItem("Close", "Closes the current file."),
-                MenuItem("Close All", "Closes all opened files."),
+                MenuItem("Close", "Closes the current file.", () => Util.HandleFileAction(this, "close")),
+                MenuItem("Close All", "Closes all opened files.", () => Util.HandleFileAction(this, "close", true)),
                 "-",
-                MenuItem("Settings", "Opens GeistStudio settings."),
+                MenuItem("Settings", "Opens GeistStudio settings.", () => { }),
                 "-",
-                MenuItem("Exit", "Closes GeistStudio.")
+                MenuItem("Exit", "Closes GeistStudio.", () => { })
             );
             // 
             // Edit
             // 
             AddMenuItems(
                 this.EditMenu,
-                MenuItem("Undo", "Reverts the last action."),
-                MenuItem("Redo", "Restores the last undone action."),
+                MenuItem("Undo", "Reverts the last action.", () => { }),
+                MenuItem("Redo", "Restores the last undone action.", () => { }),
                 "-",
-                MenuItem("Cut", "Cuts the selected text."),
-                MenuItem("Copy", "Copies the selected text."),
-                MenuItem("Paste", "Pastes copied text."),
-                MenuItem("Delete", "Deletes the selected content."),
+                MenuItem("Cut", "Cuts the selected text.", () => { }),
+                MenuItem("Copy", "Copies the selected text.", () => { }),
+                MenuItem("Paste", "Pastes copied text.", () => { }),
+                MenuItem("Delete", "Deletes the selected content.", () => { }),
                 "-",
-                MenuItem("Find", "Searches text in the current document."),
-                MenuItem("Replace", "Finds and replaces text."),
-                MenuItem("Go to Line", "Jumps to a specific line number."),
-                MenuItem("Select All", "Selects all content.")
+                MenuItem("Find", "Searches text in the current document.", () => { }),
+                MenuItem("Replace", "Finds and replaces text.", () => { }),
+                MenuItem("Go to Line", "Jumps to a specific line number.", () => { }),
+                MenuItem("Select All", "Selects all content.", () => { })
             );
             // 
             // Selection
             // 
             AddMenuItems(
                 this.SelectionMenu,
-                MenuItem("Select All", "Selects the complete document."),
-                MenuItem("Select Line", "Selects the current line."),
-                MenuItem("Add Cursor", "Adds another text cursor."),
-                MenuItem("Select All Occurrences", "Selects every matching occurrence.")
+                MenuItem("Select All", "Selects the complete document.", () => { }),
+                MenuItem("Select Line", "Selects the current line.", () => { }),
+                MenuItem("Add Cursor", "Adds another text cursor.", () => { }),
+                MenuItem("Select All Occurrences", "Selects every matching occurrence.", () => { })
             );
             // 
             // View
             // 
             AddMenuItems(
                 this.ViewMenu,
-                MenuItem("Explorer", "Shows the project file explorer."),
-                MenuItem("Search", "Opens the global search panel."),
-                MenuItem("Terminal", "Opens the integrated terminal."),
-                MenuItem("Problems", "Shows detected errors and warnings."),
-                MenuItem("Output", "Displays build and application output."),
-                MenuItem("Debug Console", "Opens the debugging console."),
+                MenuItem("Explorer", "Shows the project file explorer.", () => { }),
+                MenuItem("Search", "Opens the global search panel.", () => { }),
                 "-",
-                MenuItem("Fullscreen", "Toggles fullscreen mode."),
-                MenuItem("Zen Mode", "Activates distraction-free editing.")
+                MenuItem("Terminal", "Opens the integrated terminal.", () => { }),
+                MenuItem("Problems", "Shows detected errors and warnings.", () => { }),
+                MenuItem("Output", "Displays build and application output.", () => { }),
+                MenuItem("Debug Console", "Opens the debugging console.", () => { }),
+                "-",
+                MenuItem("Fullscreen", "Toggles fullscreen mode.", () => { }),
+                MenuItem("Zen Mode", "Activates distraction-free editing.", () => { })
             );
             // 
             // Go
             // 
             AddMenuItems(
                 this.GoMenu,
-                MenuItem("Go to File", "Searches and opens a file."),
-                MenuItem("Go to Line", "Moves the cursor to a line."),
-                MenuItem("Go to Symbol", "Searches symbols in the project."),
-                MenuItem("Go to Definition", "Jumps to a symbol definition."),
-                MenuItem("Go to References", "Finds all references.")
+                MenuItem("Go to File", "Searches and opens a file.", () => { }),
+                "-",
+                MenuItem("Go to Line", "Moves the cursor to a line.", () => { }),
+                MenuItem("Go to Symbol", "Searches symbols in the project.", () => { }),
+                "-",
+                MenuItem("Go to Definition", "Jumps to a symbol definition.", () => { }),
+                MenuItem("Go to References", "Finds all references.", () => { })
             );
             // 
             // Project
             // 
             AddMenuItems(
                 this.ProjectMenu,
-                MenuItem("New Project", "Creates a new project."),
-                MenuItem("Open Project", "Opens an existing project."),
-                MenuItem("Close Project", "Closes the current project."),
-                MenuItem("Project Settings", "Changes project configuration.")
+                MenuItem("New Project", "Creates a new project.", () => { }),
+                MenuItem("Open Project", "Opens an existing project.", () => { }),
+                MenuItem("Close Project", "Closes the current project.", () => { }),
+                MenuItem("Project Settings", "Changes project configuration.", () => { })
             );
             // 
             // Build
             // 
             AddMenuItems(
                 this.BuildMenu,
-                MenuItem("Build", "Compiles the current project."),
-                MenuItem("Rebuild", "Cleans and rebuilds the project."),
-                MenuItem("Clean", "Removes generated files."),
-                MenuItem("Publish", "Creates a distributable build.")
+                MenuItem("Build", "Compiles the current project.", () => { }),
+                MenuItem("Rebuild", "Cleans and rebuilds the project.", () => { }),
+                MenuItem("Clean", "Removes generated files.", () => { }),
+                MenuItem("Publish", "Creates a distributable build.", () => { })
             );
             // 
             // Debug
             // 
             AddMenuItems(
                 this.DebugMenu,
-                MenuItem("Start", "Starts debugging."),
-                MenuItem("Start Without Debugging", "Runs the project without debugger."),
-                MenuItem("Stop", "Stops the current execution."),
-                MenuItem("Restart", "Restarts the application."),
-                MenuItem("Toggle Breakpoint", "Adds or removes a breakpoint."),
-                MenuItem("Step Over", "Executes the next line."),
-                MenuItem("Step Into", "Enters the current function."),
-                MenuItem("Step Out", "Leaves the current function.")
+                MenuItem("Start", "Starts debugging.", () => { }),
+                MenuItem("Start Without Debugging", "Runs the project without debugger.", () => { }),
+                MenuItem("Stop", "Stops the current execution.", () => { }),
+                MenuItem("Restart", "Restarts the application.", () => { }),
+                "-",
+                MenuItem("Toggle Breakpoint", "Adds or removes a breakpoint.", () => { }),
+                "-",
+                MenuItem("Step Over", "Executes the next line.", () => { }),
+                MenuItem("Step Into", "Enters the current function.", () => { }),
+                MenuItem("Step Out", "Leaves the current function.", () => { })
             );
             // 
             // Git
             // 
             AddMenuItems(
                 this.GitMenu,
-                MenuItem("Commit", "Creates a new Git commit."),
-                MenuItem("Push", "Uploads changes to the repository."),
-                MenuItem("Pull", "Downloads repository changes."),
-                MenuItem("Fetch", "Fetches remote repository information."),
-                MenuItem("Merge", "Combines branches."),
-                MenuItem("Branches", "Manages Git branches."),
-                MenuItem("Clone Repository", "Copies a remote repository.")
+                MenuItem("Commit", "Creates a new Git commit.", () => { }),
+                MenuItem("Push", "Uploads changes to the repository.", () => { }),
+                "-",
+                MenuItem("Pull", "Downloads repository changes.", () => { }),
+                MenuItem("Fetch", "Fetches remote repository information.", () => { }),
+                MenuItem("Merge", "Combines branches.", () => { }),
+                "-",
+                MenuItem("Branches", "Manages Git branches.", () => { }),
+                MenuItem("Clone Repository", "Copies a remote repository.", () => { })
             );
             // 
             // Tools
             // 
             AddMenuItems(
                 this.ToolsMenu,
-                MenuItem("Terminal", "Opens the integrated terminal."),
-                MenuItem("Extensions", "Manages installed extensions."),
-                MenuItem("Format Document", "Formats the current document."),
-                MenuItem("Options", "Opens editor options.")
+                MenuItem("Terminal", "Opens the integrated terminal.", () => { }),
+                MenuItem("Extensions", "Manages installed extensions.", () => { }),
+                MenuItem("Format Document", "Formats the current document.", () => { }),
+                MenuItem("Options", "Opens editor options.", () => { })
             );
             // 
             // Window
             // 
             AddMenuItems(
                 this.WindowMenu,
-                MenuItem("Split Editor", "Splits the editor view."),
-                MenuItem("Next Tab", "Moves to the next tab."),
-                MenuItem("Previous Tab", "Moves to the previous tab.")
+                MenuItem("Split Editor", "Splits the editor view.", () => { }),
+                MenuItem("Next Tab", "Moves to the next tab.", () => { }),
+                MenuItem("Previous Tab", "Moves to the previous tab.", () => { })
             );
             // 
             // Help
             // 
             AddMenuItems(
                 this.HelpMenu,
-                MenuItem("Documentation", "Opens GeistStudio documentation."),
-                MenuItem("Keyboard Shortcuts", "Shows available shortcuts."),
-                MenuItem("Check for Updates", "Checks for new versions."),
-                MenuItem("About GeistStudio", "Shows information about GeistStudio.")
+                MenuItem("Documentation", "Opens GeistStudio documentation.", () => { }),
+                MenuItem("Keyboard Shortcuts", "Shows available shortcuts.", () => { }),
+                "-",
+                MenuItem("Check for Updates", "Checks for new versions.", () => { }),
+                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => { })
             );
         }
 
@@ -455,14 +480,15 @@ namespace GeistStudio
 
                 Label title = new Label();
                 title.Text = "Create a new file";
-                title.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                title.Location = new Point(20, 15);
+                title.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
+                title.Location = new Point(16, 10);
                 title.AutoSize = true;
                 title.ForeColor = dialog.ForeColor;
 
                 Label label = new Label();
-                label.Text = "File name";
-                label.Location = new Point(20, 55);
+                label.Text = "File name (without .gsScript)";
+                label.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+                label.Location = new Point(20, 50);
                 label.AutoSize = true;
                 label.ForeColor = dialog.ForeColor;
 
@@ -523,6 +549,7 @@ namespace GeistStudio
 
 
 
+
         private void OpenFileInNewTab(string title, string content)
         {
             TabPage page = new TabPage(title);
@@ -531,33 +558,52 @@ namespace GeistStudio
             container.Dock = DockStyle.Fill;
             container.BackColor = Color.FromArgb(30, 27, 58);
 
-
             Panel linePanel = new Panel();
             linePanel.Dock = DockStyle.Left;
             linePanel.Width = 50;
             linePanel.BackColor = Color.FromArgb(24, 21, 48);
 
-
             Label lineNumbers = new Label();
-            lineNumbers.Dock = DockStyle.Fill;
+            lineNumbers.AutoSize = false;
+            lineNumbers.Location = new Point(0, 0);
+            lineNumbers.Width = linePanel.Width;
             lineNumbers.Font = new Font("Consolas", 11F);
             lineNumbers.ForeColor = Color.FromArgb(130, 130, 160);
             lineNumbers.TextAlign = ContentAlignment.TopRight;
             lineNumbers.Padding = new Padding(0, 2, 6, 0);
 
-
-            TextBox editor = new TextBox();
+            SyncedRichTextBox editor = new SyncedRichTextBox();
             editor.Multiline = true;
             editor.AcceptsTab = true;
             editor.WordWrap = false;
+            editor.MaxLength = 0;
             editor.Dock = DockStyle.Fill;
             editor.Text = content;
             editor.Font = new Font("Consolas", 11F);
             editor.BackColor = Color.FromArgb(30, 27, 58);
             editor.ForeColor = Color.White;
             editor.BorderStyle = BorderStyle.None;
+            editor.DetectUrls = false;
 
+            editor.ScrollBars = RichTextBoxScrollBars.Both;
 
+            int GetLineHeight()
+            {
+                using (Graphics g = editor.CreateGraphics())
+                {
+                    return TextRenderer.MeasureText(g, "Ay", editor.Font,
+                        new Size(int.MaxValue, int.MaxValue),
+                        TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Height;
+                }
+            }
+
+            void EnableUnboundedHorizontalScroll()
+            {
+                if (!editor.IsHandleCreated)
+                    return;
+
+                SendMessage(editor.Handle, EM_SETTARGETDEVICE, IntPtr.Zero, (IntPtr)1);
+            }
 
             void UpdateLineNumbers()
             {
@@ -568,20 +614,57 @@ namespace GeistStudio
                     sb.AppendLine(i.ToString());
 
                 lineNumbers.Text = sb.ToString();
+
+                int lineHeight = GetLineHeight();
+                lineNumbers.Height = Math.Max((lineCount + 1) * lineHeight, linePanel.Height);
+            }
+
+            void SyncLineNumberScroll()
+            {
+                if (!editor.IsHandleCreated)
+                    return;
+
+                int firstCharIndex = editor.GetCharIndexFromPosition(new Point(1, 1));
+                int firstVisibleLine = editor.GetLineFromCharIndex(firstCharIndex);
+                int firstLineCharIndex = editor.GetFirstCharIndexFromLine(firstVisibleLine);
+                Point charPos = editor.GetPositionFromCharIndex(firstLineCharIndex);
+
+                int lineHeight = GetLineHeight();
+
+                lineNumbers.Top = charPos.Y - (firstVisibleLine * lineHeight);
             }
 
             editor.TextChanged += (s, e) =>
             {
                 UpdateLineNumbers();
+                EnableUnboundedHorizontalScroll();
+                SyncLineNumberScroll();
             };
 
             editor.FontChanged += (s, e) =>
             {
                 lineNumbers.Font = editor.Font;
+                SyncLineNumberScroll();
+            };
+
+            editor.Resize += (s, e) =>
+            {
+                SyncLineNumberScroll();
+            };
+
+            editor.VScroll += (s, e) => SyncLineNumberScroll();
+            editor.HScroll += (s, e) => SyncLineNumberScroll();
+            editor.KeyUp += (s, e) => SyncLineNumberScroll();
+            editor.SelectionChanged += (s, e) => SyncLineNumberScroll();
+
+            editor.HandleCreated += (s, e) =>
+            {
+                EnableUnboundedHorizontalScroll();
+                SyncLineNumberScroll();
+                SetWindowTheme(editor.Handle, "DarkMode_Explorer", null);
             };
 
             UpdateLineNumbers();
-
 
             linePanel.Controls.Add(lineNumbers);
 
@@ -593,13 +676,18 @@ namespace GeistStudio
             FileList.TabPages.Add(page);
             FileList.SelectedTab = page;
             tabEditors.Add(page, editor);
+
+            //((DarkTabControl)FileList).RecalculateTabWidth();
+
+            FileList.PerformLayout();
+            FileList.Invalidate(true);
         }
 
-        private DialogResult ShowSaveDialog()
+        public DialogResult ShowSaveDialog(bool closeFile = true)
         {
             using (Form dialog = new Form())
             {
-                dialog.Text = "Save File";
+                dialog.Text = "Save and Close File";
                 dialog.Size = new Size(400, 180);
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.BackColor = Color.FromArgb(42, 38, 78);
@@ -624,6 +712,15 @@ namespace GeistStudio
                 yes.ForeColor = Color.FromArgb(225, 220, 245);
                 yes.DialogResult = DialogResult.Yes;
 
+                if (!closeFile)
+                {
+                    dialog.Text = "Save File";
+                    title.Text = "Save File";
+                    text.Text = "Do you want to save this file?";
+                    yes.Text = "Save";
+                    yes.Location = new Point(210, 100);
+                }
+
                 Button no = new Button();
                 no.Text = "Don't Save | Close";
                 no.Location = new Point(170, 100);
@@ -640,7 +737,8 @@ namespace GeistStudio
                 dialog.Controls.Add(title);
                 dialog.Controls.Add(text);
                 dialog.Controls.Add(yes);
-                dialog.Controls.Add(no);
+                if (closeFile)
+                    dialog.Controls.Add(no);
                 dialog.Controls.Add(cancel);
 
 
@@ -648,7 +746,7 @@ namespace GeistStudio
             }
         }
 
-        private void SaveTabFile(TabPage page)
+        public void SaveTabFile(TabPage page)
         {
             if (!tabEditors.ContainsKey(page))
                 return;
@@ -656,75 +754,6 @@ namespace GeistStudio
             string fileName = page.Text;
 
             File.WriteAllText(fileName, tabEditors[page].Text);
-        }
-
-
-
-        private void FileList_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            TabPage page = FileList.TabPages[e.Index];
-            Rectangle rect = e.Bounds;
-
-
-            using (Brush bg = new SolidBrush(
-                FileList.SelectedIndex == e.Index
-                ? Color.FromArgb(55, 50, 95)
-                : Color.FromArgb(30, 27, 58)))
-            {
-                e.Graphics.FillRectangle(bg, rect);
-            }
-
-
-            e.Graphics.DrawString(
-                page.Text,
-                tabFont,
-                Brushes.White,
-                rect.X + 10,
-                rect.Y + 8);
-
-
-            Rectangle closeButton = new Rectangle(
-                rect.Right - 25,
-                rect.Y + 8,
-                16,
-                16);
-
-            if (e.Index > 0)
-            {
-                using (Pen pen = new Pen(closeColor, 2))
-                {
-                    using (Font closeFont = new Font(
-                        "Segoe UI Symbol",
-                        20F,
-                        FontStyle.Regular))
-                    using (StringFormat format = new StringFormat())
-                    {
-                        format.Alignment = StringAlignment.Center;
-                        format.LineAlignment = StringAlignment.Center;
-
-                        e.Graphics.DrawString(
-                            "×",
-                            closeFont,
-                            Brushes.Red,
-                            closeButton,
-                            format);
-                    }
-                    /*e.Graphics.DrawLine(
-                        pen,
-                        closeButton.Left,
-                        closeButton.Top,
-                        closeButton.Right,
-                        closeButton.Bottom);
-
-
-                    e.Graphics.DrawLine(
-                        pen,
-                        closeButton.Right,
-                        closeButton.Top,
-                        closeButton.Left,
-                        closeButton.Bottom);*/
-                }
-            }
         }
 
         private void FileList_MouseDown(object sender, MouseEventArgs e)
@@ -783,6 +812,7 @@ namespace GeistStudio
             }
         }
 
+
         #region Vom Windows Form-Designer generierter Code
 
         /// <summary>
@@ -807,7 +837,7 @@ namespace GeistStudio
             this.HelpMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.Sidebar = new System.Windows.Forms.Panel();
             this.MainContent = new System.Windows.Forms.Panel();
-            this.FileList = new System.Windows.Forms.TabControl();
+            this.FileList = new DarkTabControl();
             this.home = new System.Windows.Forms.TabPage();
             this.WelcomePanel = new System.Windows.Forms.Panel();
             this.WelcomeOpenButton = new System.Windows.Forms.Button();
@@ -829,7 +859,7 @@ namespace GeistStudio
             this.Navbar.Name = "Navbar";
             this.Navbar.Size = new System.Drawing.Size(1280, 25);
             this.Navbar.TabIndex = 0;
-            this.Navbar.BackColor = System.Drawing.Color.FromArgb(16, 14, 32);
+            this.Navbar.BackColor = Color.FromArgb(30, 27, 58);
             // 
             // MainMenu
             // 
@@ -847,7 +877,7 @@ namespace GeistStudio
                 this.WindowMenu,
                 this.HelpMenu
             });
-            this.MainMenu.BackColor = System.Drawing.Color.FromArgb(16, 14, 32);
+            this.MainMenu.BackColor = Color.FromArgb(30, 27, 58);
             this.MainMenu.ForeColor = System.Drawing.Color.FromArgb(225, 220, 245);
             this.MainMenu.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.MainMenu.Renderer = new GeistStudioMenuRenderer();
@@ -948,7 +978,6 @@ namespace GeistStudio
             this.MainContent.Name = "MainContent";
             this.MainContent.Size = new System.Drawing.Size(1054, 556);
             this.MainContent.TabIndex = 2;
-            this.MainContent.BackColor = System.Drawing.Color.FromArgb(30, 27, 58);
             this.MainContent.BackColor = Color.FromArgb(30, 27, 58);
             // 
             // FileList
@@ -960,31 +989,31 @@ namespace GeistStudio
             this.FileList.SelectedIndex = 0;
             this.FileList.Size = new System.Drawing.Size(1054, 256);
             this.FileList.TabIndex = 0;
-            this.FileList.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.FileList.ItemSize = new System.Drawing.Size(150, 34);
-            //this.FileList.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
-            this.FileList.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
-            //this.FileList.Padding = new System.Drawing.Point(12, 6);
-            this.FileList.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.FileList_DrawItem);
-            this.FileList.SelectedIndexChanged += new System.EventHandler(this.FileList_SelectedIndexChanged);
-            this.FileList.BackColor = System.Drawing.Color.FromArgb(30, 27, 58);
-            this.FileList.SizeMode = TabSizeMode.Fixed;
+            this.FileList.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.FileList.Padding = new Point(0, 0);
             this.FileList.ItemSize = new Size(150, 32);
-            this.FileList.DrawItem += FileList_DrawItem;
+            this.FileList.SizeMode = TabSizeMode.Normal;
+            this.FileList.Appearance = TabAppearance.Normal;
+            this.FileList.HotTrack = false;
+            this.FileList.TabStop = false;
+            this.FileList.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
+            this.FileList.SelectedIndexChanged += new System.EventHandler(this.FileList_SelectedIndexChanged);
             this.FileList.MouseDown += FileList_MouseDown;
+            this.FileList.BackColor = Color.FromArgb(38, 35, 72);
+            this.FileList.BackgroundColorDark = Color.FromArgb(38, 35, 72);
             // 
             // home
             // 
             this.home.Controls.Add(this.WelcomePanel);
             this.home.Location = new System.Drawing.Point(4, 22);
             this.home.Name = "home";
-            //this.home.Padding = new System.Windows.Forms.Padding(3);
             this.home.Size = new System.Drawing.Size(1046, 530);
-            this.home.BackColor = System.Drawing.Color.FromArgb(30, 27, 58);
+            this.home.BackColor = Color.FromArgb(30, 27, 58);
             this.home.TabIndex = 0;
             this.home.Text = "Home";
-            this.home.UseVisualStyleBackColor = true;
+            this.home.UseVisualStyleBackColor = false;
             this.home.Paint += new System.Windows.Forms.PaintEventHandler(this.Sidebar_Paint);
+            this.home.BorderStyle = BorderStyle.None;
             // 
             // WelcomePanel
             // 
@@ -1067,7 +1096,6 @@ namespace GeistStudio
             this.Controls.Add(this.Navbar);
             this.Name = "GeistStudioWin";
             this.Text = "GeistStudio";
-            this.Load += new System.EventHandler(this.GeistStudioWin_Load);
             this.Navbar.ResumeLayout(false);
             this.Navbar.PerformLayout();
             this.MainMenu.ResumeLayout(false);
@@ -1082,37 +1110,38 @@ namespace GeistStudio
 
         #endregion
 
-        private Dictionary<TabPage, TextBox> tabEditors = new Dictionary<TabPage, TextBox>();
-        private Font tabFont = new Font("Segoe UI", 9F);
-        private Color tabBackground = Color.FromArgb(42, 38, 78);
-        private Color closeColor = Color.FromArgb(220, 100, 100);
+        public Dictionary<TabPage, RichTextBox> tabEditors = new Dictionary<TabPage, RichTextBox>();
+        public Font tabFont = new Font("Segoe UI", 9F);
+        public Color tabBackground = Color.FromArgb(42, 38, 78);
+        public Color closeColor = Color.FromArgb(220, 100, 100);
 
-        private System.Windows.Forms.Panel Navbar;
-        private System.Windows.Forms.Panel Sidebar;
-        private System.Windows.Forms.Panel MainContent;
-        private System.Windows.Forms.TabControl FileList;
-        private System.Windows.Forms.TabPage home;
+        public System.Windows.Forms.Panel Navbar;
+        public System.Windows.Forms.Panel Sidebar;
+        public System.Windows.Forms.Panel MainContent;
+        public DarkTabControl FileList;
+        public System.Windows.Forms.TabPage home;
 
-        private System.Windows.Forms.ToolTip StyledToolTip;
-        private System.Windows.Forms.MenuStrip MainMenu;
-        private ToolStripMenuItem FileMenu;
-        private ToolStripMenuItem EditMenu;
-        private ToolStripMenuItem SelectionMenu;
-        private ToolStripMenuItem ViewMenu;
-        private ToolStripMenuItem GoMenu;
-        private ToolStripMenuItem ProjectMenu;
-        private ToolStripMenuItem BuildMenu;
-        private ToolStripMenuItem DebugMenu;
-        private ToolStripMenuItem GitMenu;
-        private ToolStripMenuItem ToolsMenu;
-        private ToolStripMenuItem WindowMenu;
-        private ToolStripMenuItem HelpMenu;
+        public System.Windows.Forms.ToolTip StyledToolTip;
+        public System.Windows.Forms.MenuStrip MainMenu;
+        public ToolStripMenuItem FileMenu;
+        public ToolStripMenuItem EditMenu;
+        public ToolStripMenuItem SelectionMenu;
+        public ToolStripMenuItem ViewMenu;
+        public ToolStripMenuItem GoMenu;
+        public ToolStripMenuItem ProjectMenu;
+        public ToolStripMenuItem BuildMenu;
+        public ToolStripMenuItem DebugMenu;
+        public ToolStripMenuItem GitMenu;
+        public ToolStripMenuItem ToolsMenu;
+        public ToolStripMenuItem WindowMenu;
+        public ToolStripMenuItem HelpMenu;
 
-        private System.Windows.Forms.Panel WelcomePanel;
-        private System.Windows.Forms.Label WelcomeTitleLabel;
-        private System.Windows.Forms.Label WelcomeSubtitleLabel;
-        private System.Windows.Forms.Button WelcomeNewButton;
-        private System.Windows.Forms.Button WelcomeOpenButton;
+        public System.Windows.Forms.Panel WelcomePanel;
+        public System.Windows.Forms.Label WelcomeTitleLabel;
+        public System.Windows.Forms.Label WelcomeSubtitleLabel;
+        public System.Windows.Forms.Button WelcomeNewButton;
+        public System.Windows.Forms.Button WelcomeOpenButton;
+
 
         public void addTab(String name)
         {

@@ -31,27 +31,19 @@ namespace GeistStudio
         }
         public static void HandleFileAction(GeistStudioWin form, String type, bool effectAll = false)
         {
-            for (int i = 0; i < form.FileList.TabPages.Count; i++)
+            if (type != "close" && type != "save")
+                return; 
+
+            for (int i = form.FileList.TabPages.Count - 1; i > 0; i--)
             {
-                Console.WriteLine("Index: " + i);
-                if (!effectAll && i > 0)
-                {
-                    if (form.FileList.TabPages[i] == form.FileList.SelectedTab)
-                    {
-                        if (type == "save")
-                            handleFileFromIndex(form, i, false);
-                        else if (type == "close")
-                            handleFileFromIndex(form, i, true);
-                        break;
-                    }
-                }
-                else if (effectAll && i > 0)
-                {
-                    if (type == "save")
-                        handleFileFromIndex(form, i, false);
-                    else if (type == "close")
-                        handleFileFromIndex(form, i, true);
-                }
+                TabPage page = form.FileList.TabPages[i];
+                bool closeFile = type == "close";
+
+                if (i != 0)
+                    handleFileFromIndex(form, i, closeFile);
+
+                if (page == form.FileList.SelectedTab && !effectAll && i != 0)
+                    break;
             }
         }
     }

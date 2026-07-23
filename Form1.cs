@@ -97,6 +97,11 @@ namespace GeistStudio
     public class DarkTabControl : TabControl
     {
         public Color BackgroundColorDark { get; set; } = Color.FromArgb(38, 35, 72);
+        private Color closeNormalColor = Color.FromArgb(140, 140, 140);
+        private Color closeHoverColor = Color.FromArgb(220, 50, 50);
+        public Timer closeHoverTimer;
+        public float closeHoverProgress = 0f;
+        public bool closeHovered = false;
 
         public DarkTabControl()
         {
@@ -111,8 +116,24 @@ namespace GeistStudio
                 ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.OptimizedDoubleBuffer,
                 true);
-        }
 
+            this.closeHoverTimer = new Timer();
+            this.closeHoverTimer.Interval = 15;
+
+            this.closeHoverTimer.Tick += (s, e) =>
+            {
+                float speed = 0.08f;
+
+                if (this.closeHovered)
+                    this.closeHoverProgress = Math.Min(1f, this.closeHoverProgress + speed);
+                else
+                    this.closeHoverProgress = Math.Max(0f, this.closeHoverProgress - speed);
+
+                Invalidate();
+            };
+
+            this.closeHoverTimer.Start();
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -167,9 +188,18 @@ namespace GeistStudio
                         16,
                         16);
 
+                    this.closeHovered = closeButton.Contains(PointToClient(MousePosition));
+
+                    Color currentColor = Color.FromArgb(
+                        (int)(closeNormalColor.R + (closeHoverColor.R - closeNormalColor.R) * closeHoverProgress),
+                        (int)(closeNormalColor.G + (closeHoverColor.G - closeNormalColor.G) * closeHoverProgress),
+                        (int)(closeNormalColor.B + (closeHoverColor.B - closeNormalColor.B) * closeHoverProgress)
+                    );
+
+
                     using (Font closeFont = new Font("Segoe UI Symbol", 20F))
                     using (StringFormat format = new StringFormat())
-                    using (Brush closeBrush = new SolidBrush(Color.Red))
+                    using (Brush closeBrush = new SolidBrush(currentColor))
                     {
                         format.Alignment = StringAlignment.Center;
                         format.LineAlignment = StringAlignment.Center;

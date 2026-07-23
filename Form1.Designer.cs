@@ -20,7 +20,27 @@ namespace GeistStudio
         /// <summary>
         /// Erforderliche Logikvariable.
         /// </summary>
+        /// ChangeTitleBarColor(Color.FromArgb(26, 23, 55));
         private int tabSize = 0;
+        private const int DWMWA_CAPTION_COLOR = 35;
+
+        private Panel titleBar;
+        private Button closeButton;
+        private Button maximizeButton;
+        private Button minimizeButton;
+
+        private Color closeColor = Color.FromArgb(220, 50, 50);
+        private Color normalButtonColor = Color.FromArgb(35, 32, 70);
+
+        [DllImport("user32.dll")]
+        private static extern void ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        private static extern int SendMessage(
+            IntPtr hWnd,
+            int Msg,
+            int wParam,
+            int lParam);
 
         /// <summary>
         /// Verwendete Ressourcen bereinigen.
@@ -75,7 +95,14 @@ namespace GeistStudio
         private const uint SWP_NOSIZE = 0x0001;
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_FRAMECHANGED = 0x0020;
-        private void InitializeStyledToolTip()
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(
+           IntPtr hwnd,
+           int attr,
+           ref int attrValue,
+           int attrSize);
+        private void InitializeStyledToolTipOld()
         {
             this.StyledToolTip = new System.Windows.Forms.ToolTip();
 
@@ -208,6 +235,70 @@ namespace GeistStudio
             };
         }
 
+        private void InitializeStyledToolTip()
+        {
+            this.StyledToolTip = new ToolTip();
+
+            this.StyledToolTip.OwnerDraw = true;
+            this.StyledToolTip.ShowAlways = true;
+
+            this.StyledToolTip.InitialDelay = 400;
+            this.StyledToolTip.ReshowDelay = 100;
+            this.StyledToolTip.AutoPopDelay = 6000;
+
+            Font tooltipFont = new Font(
+                "Segoe UI",
+                9F);
+
+            Color backgroundColor = Color.FromArgb(42, 38, 72);
+            Color borderColor = Color.FromArgb(124, 58, 237);
+            Color textColor = Color.FromArgb(225, 220, 245);
+            
+            this.StyledToolTip.Popup += (s, e) =>
+            {
+                e.ToolTipSize = new Size(
+                    e.ToolTipSize.Width + 24,
+                    e.ToolTipSize.Height + 14);
+            };
+
+            this.StyledToolTip.Draw += (s, e) =>
+            {
+                Rectangle rect = new Rectangle(
+                    1,
+                    1,
+                    e.Bounds.Width - 2,
+                    e.Bounds.Height - 2);
+
+                using (SolidBrush background = new SolidBrush(backgroundColor))
+                {
+                    e.Graphics.FillRectangle(
+                        background,
+                        rect);
+                }
+
+                using (Pen border = new Pen(borderColor))
+                {
+                    e.Graphics.DrawRectangle(
+                        border,
+                        rect);
+                }
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    e.ToolTipText,
+                    tooltipFont,
+                    new Rectangle(
+                        12,
+                        7,
+                        e.Bounds.Width - 24,
+                        e.Bounds.Height - 14),
+                    textColor,
+                    TextFormatFlags.Left
+                    | TextFormatFlags.VerticalCenter
+                    | TextFormatFlags.WordBreak);
+            };
+        }
+
         private IntPtr GetToolTipHandle()
         {
             foreach (System.Diagnostics.Process process in
@@ -236,7 +327,6 @@ namespace GeistStudio
 
         private void ShowStyledToolTip(string description)
         {
-            InitializeStyledToolTip();
             if (string.IsNullOrEmpty(description))
                 return;
 
@@ -248,6 +338,7 @@ namespace GeistStudio
             ToolStripMenuItem menu,
             params object[] items)
         {
+            InitializeStyledToolTip();
             foreach (object item in items)
             {
                 if (item is string text && text == "-")
@@ -290,7 +381,7 @@ namespace GeistStudio
                 MenuItem("Recent Files", "Shows recently opened files.", () => { }),
                 "-",
                 MenuItem("Save", "Saves the current file.", () => Util.HandleFileAction(this, "save")),
-                MenuItem("Save As...", "Saves the current file with a different name.", () => { }),
+                MenuItem("Save As...", "Saves the current file with a different name.", () => Util.SaveAsFile(this)),
                 MenuItem("Save All", "Saves all opened files.", () => Util.HandleFileAction(this, "save", true)),
                 "-",
                 MenuItem("Close", "Closes the current file.", () => Util.HandleFileAction(this, "close")),
@@ -355,7 +446,9 @@ namespace GeistStudio
                 MenuItem("Go to Symbol", "Searches symbols in the project.", () => { }),
                 "-",
                 MenuItem("Go to Definition", "Jumps to a symbol definition.", () => { }),
-                MenuItem("Go to References", "Finds all references.", () => { })
+                MenuItem("Go to References", "Finds all references.", () => { }),
+                "-",
+                MenuItem("Go to Home", "Go back to the Welcome Screen.", () => Util.gotToHome(this))
             );
             // 
             // Project
@@ -439,8 +532,6 @@ namespace GeistStudio
                 MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => { })
             );
         }
-
-
 
         private void WelcomePanel_Paint(object sender, PaintEventArgs e)
         {
@@ -542,7 +633,7 @@ namespace GeistStudio
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
                     string content = System.IO.File.ReadAllText(dialog.FileName);
-                    OpenFileInNewTab(System.IO.Path.GetFileName(dialog.FileName), content);
+                    OpenFileInNewTab(System.IO.Path.GetFileName(dialog.FileName), content, true);
                 }
             }
         }
@@ -550,7 +641,7 @@ namespace GeistStudio
 
 
 
-        private void OpenFileInNewTab(string title, string content)
+        public void OpenFileInNewTab(string title, string content, bool opened = false, bool hideMsg = false)
         {
             TabPage page = new TabPage(title);
 
@@ -677,10 +768,12 @@ namespace GeistStudio
             FileList.SelectedTab = page;
             tabEditors.Add(page, editor);
 
-            //((DarkTabControl)FileList).RecalculateTabWidth();
-
             FileList.PerformLayout();
             FileList.Invalidate(true);
+
+            String actionType = !opened ? "Created" : "Opened";
+            if (!hideMsg)
+                Util.Notify(this, "Success", actionType + " file successfully");
         }
 
         public DialogResult ShowSaveDialog(bool closeFile = true)
@@ -754,6 +847,7 @@ namespace GeistStudio
             string fileName = page.Text;
 
             File.WriteAllText(fileName, tabEditors[page].Text);
+            Util.Notify(this, "Success", "Saved file successfully.");
         }
 
         private void FileList_MouseDown(object sender, MouseEventArgs e)
@@ -810,6 +904,195 @@ namespace GeistStudio
             {
                 e.Graphics.DrawLine(pen, this.Sidebar.Width - 1, 0, this.Sidebar.Width - 1, this.Sidebar.Height);
             }
+        }
+
+        struct Attributes
+        {
+            public bool NeedsCtrl;
+            public bool NeedsShift;
+            public bool NeedsAlt;
+
+            public Attributes(bool ctrl, bool shift, bool alt)
+            {
+                NeedsCtrl = ctrl;
+                NeedsShift = shift;
+                NeedsAlt = alt;
+            }
+        }
+
+        struct ShortCut
+        {
+            public Attributes Attributes;
+            public Keys Key;
+            public Action<GeistStudioWin> Func;
+
+            public ShortCut(Attributes attributes, Keys key, Action<GeistStudioWin> func)
+            {
+                Attributes = attributes;
+                Key = key;
+                Func = func;
+            }
+        }
+        //new Attributes(needsCtrl, needsShift, needsAlt)
+        ShortCut[] keyShortCuts =
+        {
+            new ShortCut(
+                new Attributes(true, true, false),
+                Keys.S,
+                form => Util.HandleFileAction(form, "save", true)
+            ),
+
+            new ShortCut(
+                new Attributes(true, false, true),
+                Keys.S,
+                form => Util.SaveAsFile(form)
+            ),
+
+            new ShortCut(
+                new Attributes(true, false, false),
+                Keys.S,
+                form => Util.HandleFileAction(form, "save", false)
+            ),
+
+            new ShortCut(
+                new Attributes(true, true, false),
+                Keys.W,
+                form => Util.HandleFileAction(form, "close", true)
+            ),
+
+            new ShortCut(
+                new Attributes(true, false, false),
+                Keys.W,
+                form => Util.HandleFileAction(form, "close", false)
+            ),
+
+            new ShortCut(
+                new Attributes(true, false, false),
+                Keys.N,
+                form => form.WelcomeNewButton_Click(null, null)
+            )
+        };
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            foreach (ShortCut shortcut in keyShortCuts)
+            {
+                if (e.KeyCode == shortcut.Key &&
+                    (!shortcut.Attributes.NeedsCtrl || e.Control) &&
+                    (!shortcut.Attributes.NeedsShift || e.Shift) &&
+                    (!shortcut.Attributes.NeedsAlt || e.Alt))
+                {
+                    shortcut.Func(this);
+                    e.SuppressKeyPress = true;
+                    break;
+                }
+            }
+        }
+
+        private void ChangeTitleBarColor(Color color)
+        {
+            int colorValue = color.R |
+                             (color.G << 8) |
+                             (color.B << 16);
+
+            DwmSetWindowAttribute(
+                this.Handle,
+                DWMWA_CAPTION_COLOR,
+                ref colorValue,
+                sizeof(int));
+        }
+
+        private Button CreateWindowButton(string text, bool isClose = false)
+        {
+            Button btn = new Button();
+
+            btn.Text = text;
+            btn.Width = 45;
+            btn.Dock = DockStyle.Right;
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 0;
+            btn.BackColor = normalButtonColor;
+            btn.ForeColor = Color.FromArgb(210, 210, 230);
+            btn.Cursor = Cursors.Hand;
+
+            btn.Font = new Font("Segoe UI Symbol", 12);
+
+            btn.MouseEnter += (s, e) =>
+            {
+                btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
+            };
+
+            btn.MouseLeave += (s, e) =>
+            {
+                btn.BackColor = normalButtonColor;
+            };
+
+            return btn;
+        }
+
+
+        private void CreateCustomTitleBar()
+        {
+            titleBar = new Panel();
+            titleBar.Dock = DockStyle.Top;
+            titleBar.Height = 35;
+            titleBar.BackColor = Color.FromArgb(26, 23, 55);
+
+            this.Controls.Add(titleBar);
+
+
+            Label title = new Label();
+            title.Text = "GeistStudio";
+            title.ForeColor = Color.FromArgb(230, 225, 245);
+            title.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            title.Location = new Point(15, 8);
+            title.AutoSize = true;
+
+            titleBar.Controls.Add(title);
+
+            minimizeButton = CreateWindowButton("─");
+            minimizeButton.Dock = DockStyle.Right;
+
+            maximizeButton = CreateWindowButton("□");
+            maximizeButton.Dock = DockStyle.Right;
+
+            closeButton = CreateWindowButton("×", true);
+            closeButton.Dock = DockStyle.Right;
+
+            minimizeButton.Click += (s, e) =>
+            {
+                this.WindowState = FormWindowState.Minimized;
+            };
+
+            maximizeButton.Click += (s, e) =>
+            {
+                this.WindowState =
+                    this.WindowState == FormWindowState.Maximized
+                    ? FormWindowState.Normal
+                    : FormWindowState.Maximized;
+            };
+
+            closeButton.Click += (s, e) =>
+            {
+                this.Close();
+            };
+
+            titleBar.Controls.Add(minimizeButton);
+            titleBar.Controls.Add(maximizeButton);
+            titleBar.Controls.Add(closeButton);
+
+            titleBar.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    ReleaseCapture();
+                    SendMessage(
+                        Handle,
+                        0xA1,
+                        0x2,
+                        0);
+                }
+            };
         }
 
 
@@ -1096,6 +1379,11 @@ namespace GeistStudio
             this.Controls.Add(this.Navbar);
             this.Name = "GeistStudioWin";
             this.Text = "GeistStudio";
+            this.KeyPreview = true;
+            CreateCustomTitleBar();
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.DoubleBuffered = true;
+            this.KeyDown += Form1_KeyDown;
             this.Navbar.ResumeLayout(false);
             this.Navbar.PerformLayout();
             this.MainMenu.ResumeLayout(false);
@@ -1105,7 +1393,6 @@ namespace GeistStudio
             this.WelcomePanel.ResumeLayout(false);
             this.WelcomePanel.PerformLayout();
             this.ResumeLayout(false);
-
         }
 
         #endregion
@@ -1113,7 +1400,7 @@ namespace GeistStudio
         public Dictionary<TabPage, RichTextBox> tabEditors = new Dictionary<TabPage, RichTextBox>();
         public Font tabFont = new Font("Segoe UI", 9F);
         public Color tabBackground = Color.FromArgb(42, 38, 78);
-        public Color closeColor = Color.FromArgb(220, 100, 100);
+        //public Color closeColor = Color.FromArgb(220, 100, 100);
 
         public System.Windows.Forms.Panel Navbar;
         public System.Windows.Forms.Panel Sidebar;

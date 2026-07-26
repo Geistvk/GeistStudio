@@ -28,6 +28,7 @@ namespace GeistStudio
         private Button closeButton;
         private Button maximizeButton;
         private Button minimizeButton;
+        private Button setBtn;
 
         private Color closeColor = Color.FromArgb(220, 50, 50);
         private Color normalButtonColor = Color.FromArgb(35, 32, 70);
@@ -407,7 +408,9 @@ namespace GeistStudio
                 MenuItem("Find", "Searches text in the current document.", () => { }),
                 MenuItem("Replace", "Finds and replaces text.", () => { }),
                 MenuItem("Go to Line", "Jumps to a specific line number.", () => { }),
-                MenuItem("Select All", "Selects all content.", () => { })
+                MenuItem("Select All", "Selects all content.", () => { }),
+                "-",
+                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.openSettings())
             );
             // 
             // Selection
@@ -518,7 +521,9 @@ namespace GeistStudio
                 this.WindowMenu,
                 MenuItem("Split Editor", "Splits the editor view.", () => { }),
                 MenuItem("Next Tab", "Moves to the next tab.", () => { }),
-                MenuItem("Previous Tab", "Moves to the previous tab.", () => { })
+                MenuItem("Previous Tab", "Moves to the previous tab.", () => { }),
+                "-",
+                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.openSettings())
             );
             // 
             // Help
@@ -989,17 +994,22 @@ namespace GeistStudio
             }
         }
 
-        private void ChangeTitleBarColor(Color color)
+        private void addBtnToTitleBar(Panel parent, String btn, Action func) 
         {
-            int colorValue = color.R |
-                             (color.G << 8) |
-                             (color.B << 16);
+            Button customBtn = new Button();
+            customBtn.Text = btn;
+            customBtn.Width = 45;
+            customBtn.TabStop = false;
+            customBtn.Cursor = Cursors.Hand;
+            customBtn.Dock = DockStyle.Right;
+            customBtn.FlatStyle = FlatStyle.Flat;
+            customBtn.FlatAppearance.BorderSize = 0;
+            customBtn.Font = new Font("Segoe UI Symbol", 12);
+            customBtn.ForeColor = Color.FromArgb(210, 210, 230);
 
-            DwmSetWindowAttribute(
-                this.Handle,
-                DWMWA_CAPTION_COLOR,
-                ref colorValue,
-                sizeof(int));
+            customBtn.Click += (s, e) => func();
+
+            parent.Controls.Add(customBtn);
         }
 
         private Button CreateWindowButton(string text, bool isClose = false)
@@ -1008,24 +1018,16 @@ namespace GeistStudio
 
             btn.Text = text;
             btn.Width = 45;
+            btn.Cursor = Cursors.Hand;
             btn.Dock = DockStyle.Right;
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 0;
             btn.BackColor = normalButtonColor;
-            btn.ForeColor = Color.FromArgb(210, 210, 230);
-            btn.Cursor = Cursors.Hand;
-
             btn.Font = new Font("Segoe UI Symbol", 12);
+            btn.ForeColor = Color.FromArgb(210, 210, 230);
 
-            btn.MouseEnter += (s, e) =>
-            {
-                btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
-            };
-
-            btn.MouseLeave += (s, e) =>
-            {
-                btn.BackColor = normalButtonColor;
-            };
+            btn.MouseEnter += (s, e) => btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalButtonColor;
 
             return btn;
         }
@@ -1059,23 +1061,26 @@ namespace GeistStudio
             closeButton = CreateWindowButton("×", true);
             closeButton.Dock = DockStyle.Right;
 
-            minimizeButton.Click += (s, e) =>
-            {
-                this.WindowState = FormWindowState.Minimized;
+            minimizeButton.Click += (s, e) => this.WindowState = FormWindowState.Minimized;
+            maximizeButton.Click += (s, e) => {
+                this.WindowState =  
+                    this.WindowState == FormWindowState.Maximized 
+                    ? FormWindowState.Normal 
+                    : FormWindowState.Maximized; 
             };
+            closeButton.Click += (s, e) => this.Close();
 
-            maximizeButton.Click += (s, e) =>
-            {
-                this.WindowState =
-                    this.WindowState == FormWindowState.Maximized
-                    ? FormWindowState.Normal
-                    : FormWindowState.Maximized;
-            };
+            addBtnToTitleBar(
+                titleBar,
+                "▶",
+                () => Util.executeCode(this)
+            );
 
-            closeButton.Click += (s, e) =>
-            {
-                this.Close();
-            };
+            addBtnToTitleBar(
+                titleBar, 
+                "⛭", 
+                () => Util.openSettings()
+            );
 
             titleBar.Controls.Add(minimizeButton);
             titleBar.Controls.Add(maximizeButton);

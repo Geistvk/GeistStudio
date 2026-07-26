@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -47,6 +48,38 @@ namespace GeistStudio
                 if (!effectAll && i != 0)
                     break;
             }
+        }
+
+        public static int getTabIndex(GeistStudioWin form, TabPage cur) 
+        {
+            for (int i = form.FileList.TabPages.Count - 1; i > 0; i--)
+            {
+                if (form.FileList.TabPages[i] == cur)
+                    return i;
+            }
+            return -1;
+        }
+
+        public static String getTabContent(GeistStudioWin form, TabPage cur) 
+        {
+            String content = "";
+
+            if (!File.Exists(cur.Text))
+            {
+                Util.Notify(form, "Error", "This File doesn't exist");
+                return content;
+            }
+
+            int fileIndex = Util.getTabIndex(form, form.FileList.SelectedTab);
+            if (fileIndex < 0)
+            {
+                Util.Notify(form, "Error", "This File isn't opened");
+                return content;
+            }
+
+            content = form.tabEditors[cur].Text;
+
+            return content;
         }
 
         public static void SaveAsFile(GeistStudioWin form)
@@ -221,6 +254,30 @@ namespace GeistStudio
         public static void gotToHome(GeistStudioWin form)
         {
             form.FileList.SelectedTab = form.home;
+        }
+
+        public static void openSettings() 
+        {
+            Settings set = new Settings();
+            set.Open();
+        }
+
+        public static void executeCode(GeistStudioWin form)
+        {
+            if (form.FileList.SelectedTab == form.home)
+            {
+                Util.Notify(form, "Error", "This Tab isn't a File");
+                return;
+            }
+
+            TabPage file = form.FileList.SelectedTab;
+            String content = Util.getTabContent(form, file);
+            String output = $@"
+            This File will be exectued: {file.Text}
+            Content: {content}
+            ";
+
+            MessageBox.Show(output);
         }
     }
 }

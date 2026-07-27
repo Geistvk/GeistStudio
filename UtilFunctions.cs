@@ -1,11 +1,16 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -256,13 +261,51 @@ namespace GeistStudio
             form.FileList.SelectedTab = form.home;
         }
 
-        public static void openSettings() 
+        public static void OpenSettings() 
         {
             Settings set = new Settings();
             set.Open();
         }
 
-        public static void executeCode(GeistStudioWin form)
+        public static Terminal terminal;
+        private static CppProcess cpp = new CppProcess();
+
+        public static void OpenTerminal(GeistStudioWin form, Boolean runCode = false, String fileName = "")
+        {
+            if (terminal != null && !terminal.IsDisposed)
+            {
+                terminal.Activate();
+                return;
+            }
+
+            if (terminal == null || terminal.IsDisposed)
+            {
+                terminal = new Terminal(runCode);
+            }
+
+            terminal.CommandEntered += (input) =>
+            {
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    string result;
+                    result = cpp.Run(input);
+                    terminal.Send(result);
+                });
+            };
+
+            terminal.FormClosed += (s, e) =>
+            {
+                terminal = null;
+            };
+
+            if (runCode)
+                terminal.Send(terminal.Prompt + "script " + fileName, false);
+
+            terminal.Open();
+            Util.Notify(form, "Success", "New Terminal opened successfully");
+        }
+
+        public static void ExecuteCode(GeistStudioWin form)
         {
             if (form.FileList.SelectedTab == form.home)
             {
@@ -271,13 +314,239 @@ namespace GeistStudio
             }
 
             TabPage file = form.FileList.SelectedTab;
-            String content = Util.getTabContent(form, file);
-            String output = $@"
-            This File will be exectued: {file.Text}
-            Content: {content}
-            ";
 
-            MessageBox.Show(output);
+            OpenTerminal(form, true, file.Text);
+
+            String result = cpp.Run("script " + file.Text);
+            terminal.Send(result);
+        }
+    }
+
+    public class CppProcess : IDisposable
+    {
+        private readonly Process process;
+        private readonly BlockingCollection<string> outputLines = new BlockingCollection<string>();
+        private readonly StringBuilder errorLog = new StringBuilder();
+        private readonly object errorLock = new object();
+        private readonly string tempExePath;
+
+        // Nach dem Start ausgegebener Begrüßungstext ("Type 'help' for some Commands...")
+        public string Banner { get; private set; } = "";
+
+        /// <param name="embeddedResourceName">
+        /// Voller Name der eingebetteten Resource, z.B. "MeineApp.Resources.GeistOS.exe".
+        /// Wenn null, wird automatisch die einzige eingebettete .exe Resource im Assembly gesucht.
+        /// </param>
+        public CppProcess(string embeddedResourceName = null)
+        {
+            tempExePath = ExtractEmbeddedExe(embeddedResourceName);
+
+            process = new Process();
+
+            process.StartInfo.FileName = tempExePath;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardInput = true;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.StandardOutputEncoding = Encoding.UTF8;
+            process.StartInfo.StandardErrorEncoding = Encoding.UTF8;
+
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                    outputLines.Add(StripAnsi(e.Data));
+            };
+
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                {
+                    lock (errorLock) { errorLog.AppendLine(e.Data); }
+                }
+            };
+
+            process.Start();
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            process.StandardInput.AutoFlush = true;
+
+            // GeistOS schreibt beim Start direkt "Type 'help' for some Commands.\n\n"
+            // bevor irgendein Befehl gesendet wurde - das fangen wir separat ab.
+            Banner = CollectUntilIdle(idleMs: 300, maxTotalMs: 2000, requireAny: false);
+        }
+
+        /// <summary>
+        /// Kopiert die eingebettete .exe Resource in eine temporäre Datei und gibt deren Pfad zurück.
+        /// </summary>
+        private static string ExtractEmbeddedExe(string resourceName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+
+            if (resourceName == null)
+            {
+                var candidates = assembly.GetManifestResourceNames()
+                    .Where(n => n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                if (candidates.Length == 0)
+                    throw new InvalidOperationException(
+                        "Keine eingebettete .exe Resource gefunden. Vorhandene Resourcen: " +
+                        string.Join(", ", assembly.GetManifestResourceNames()));
+
+                if (candidates.Length > 1)
+                    throw new InvalidOperationException(
+                        "Mehrere eingebettete .exe Resourcen gefunden, bitte embeddedResourceName explizit angeben: " +
+                        string.Join(", ", candidates));
+
+                resourceName = candidates[0];
+            }
+
+            string tempPath = Path.Combine(Path.GetTempPath(), $"GeistOS_{Guid.NewGuid():N}.exe");
+
+            using (Stream resStream = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (resStream == null)
+                    throw new InvalidOperationException(
+                        $"Resource '{resourceName}' nicht gefunden. Vorhandene Resourcen: " +
+                        string.Join(", ", assembly.GetManifestResourceNames()));
+
+                using (FileStream fileStream = File.Create(tempPath))
+                {
+                    resStream.CopyTo(fileStream);
+                }
+            }
+
+            return tempPath;
+        }
+
+        /// <summary>
+        /// Führt einen Befehl im GeistOS-Terminal aus und gibt die komplette Ausgabe zurück.
+        ///
+        /// WICHTIG: GeistOS' run()-Schleife liest pro Durchlauf ZWEI Zeilen von stdin
+        /// (siehe GeistOS.cpp, Terminal::run(), ca. Zeile 1394 und 1410):
+        ///   1. Zeile -> wird nur für den Echo-/Exit-Check verwendet
+        ///   2. Zeile -> wird tatsächlich als Befehl ausgeführt
+        /// Deshalb senden wir den Befehl absichtlich zweimal.
+        /// </summary>
+        public string Run(string command, int idleMs = 200, int maxTotalMs = 15000)
+        {
+            if (process.HasExited)
+                throw new InvalidOperationException(
+                    $"Der C++ Prozess läuft nicht mehr (ExitCode {process.ExitCode}).");
+
+            process.StandardInput.WriteLine(command);
+            process.StandardInput.WriteLine(command);
+
+            string result = CollectUntilIdle(idleMs, maxTotalMs, requireAny: true);
+
+            if (result.Length == 0)
+                result = "";
+
+            return result;
+        }
+
+        /// <summary>
+        /// Sammelt Zeilen aus der Output-Queue, bis für <paramref name="idleMs"/> ms
+        /// keine neue Zeile mehr ankommt (= Prozess wartet vermutlich wieder auf Input),
+        /// oder bis <paramref name="maxTotalMs"/> insgesamt erreicht ist.
+        /// </summary>
+        private string CollectUntilIdle(int idleMs, int maxTotalMs, bool requireAny)
+        {
+            var sb = new StringBuilder();
+            bool gotAny = false;
+            var totalTimer = Stopwatch.StartNew();
+
+            while (totalTimer.ElapsedMilliseconds < maxTotalMs)
+            {
+                int waitMs = gotAny
+                    ? idleMs
+                    : (int)Math.Max(1, maxTotalMs - totalTimer.ElapsedMilliseconds);
+
+                if (outputLines.TryTake(out string line, waitMs))
+                {
+                    sb.AppendLine(line);
+                    gotAny = true;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (requireAny && !gotAny)
+                return "";
+
+            return sb.ToString().TrimEnd('\r', '\n');
+        }
+
+        private static string StripAnsi(string input)
+        {
+            var sb = new StringBuilder(input.Length);
+            for (int i = 0; i < input.Length; i++)
+            {
+                if (input[i] == '\x1B')
+                {
+                    while (i < input.Length && input[i] != 'm')
+                        i++;
+                }
+                else
+                {
+                    sb.Append(input[i]);
+                }
+            }
+            return sb.ToString();
+        }
+
+        public void Close()
+        {
+            if (process.HasExited)
+                return;
+
+            try
+            {
+                process.StandardInput.WriteLine("exit");
+                process.StandardInput.WriteLine("exit");
+                process.StandardInput.Flush();
+            }
+            catch (InvalidOperationException)
+            {
+                // Prozess ist bereits weg
+            }
+
+            if (!process.WaitForExit(5000))
+            {
+                process.Kill();
+            }
+        }
+
+        public void Dispose()
+        {
+            Close();
+            outputLines.Dispose();
+            process.Dispose();
+
+            // Temporäre exe wieder aufräumen. Direkt nach Prozessende kann die Datei
+            // kurzzeitig noch vom OS gesperrt sein, daher ein paar Versuche mit Wartezeit.
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(tempExePath))
+                        File.Delete(tempExePath);
+                    break;
+                }
+                catch (IOException)
+                {
+                    Thread.Sleep(200);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Thread.Sleep(200);
+                }
+            }
         }
     }
 }

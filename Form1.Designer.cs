@@ -28,7 +28,6 @@ namespace GeistStudio
         private Button closeButton;
         private Button maximizeButton;
         private Button minimizeButton;
-        private Button setBtn;
 
         private Color closeColor = Color.FromArgb(220, 50, 50);
         private Color normalButtonColor = Color.FromArgb(35, 32, 70);
@@ -410,7 +409,7 @@ namespace GeistStudio
                 MenuItem("Go to Line", "Jumps to a specific line number.", () => { }),
                 MenuItem("Select All", "Selects all content.", () => { }),
                 "-",
-                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.openSettings())
+                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.OpenSettings())
             );
             // 
             // Selection
@@ -509,7 +508,7 @@ namespace GeistStudio
             // 
             AddMenuItems(
                 this.ToolsMenu,
-                MenuItem("Terminal", "Opens the integrated terminal.", () => { }),
+                MenuItem("Terminal", "Opens the integrated terminal.", () => Util.OpenTerminal(this)),
                 MenuItem("Extensions", "Manages installed extensions.", () => { }),
                 MenuItem("Format Document", "Formats the current document.", () => { }),
                 MenuItem("Options", "Opens editor options.", () => { })
@@ -523,7 +522,7 @@ namespace GeistStudio
                 MenuItem("Next Tab", "Moves to the next tab.", () => { }),
                 MenuItem("Previous Tab", "Moves to the previous tab.", () => { }),
                 "-",
-                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.openSettings())
+                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.OpenSettings())
             );
             // 
             // Help
@@ -975,6 +974,12 @@ namespace GeistStudio
                 new Attributes(true, false, false),
                 Keys.N,
                 form => form.WelcomeNewButton_Click(null, null)
+            ),
+
+            new ShortCut(
+                new Attributes(true, false, false),
+                Keys.T,
+                form => Util.OpenTerminal(form)
             )
         };
 
@@ -1073,13 +1078,19 @@ namespace GeistStudio
             addBtnToTitleBar(
                 titleBar,
                 "▶",
-                () => Util.executeCode(this)
+                () => Util.ExecuteCode(this)
+            );
+
+            addBtnToTitleBar(
+                titleBar,
+                "💻",
+                () => Util.OpenTerminal(this)
             );
 
             addBtnToTitleBar(
                 titleBar, 
                 "⛭", 
-                () => Util.openSettings()
+                () => Util.OpenSettings()
             );
 
             titleBar.Controls.Add(minimizeButton);

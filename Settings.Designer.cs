@@ -526,14 +526,6 @@ namespace GeistStudio
         private Button minimizeButton;
 
         private Dictionary<string, SmoothScrollPanel> Pages = new Dictionary<string, SmoothScrollPanel>();
-        private Panel CurrentPage;
-
-        private Panel homePage;
-        private Panel appearancePage;
-        private Panel editorPage;
-        private Panel terminalPage;
-        private Panel extensionsPage;
-        private Panel aboutPage;
 
         private Color closeColor = Color.FromArgb(220, 50, 50);
         private Color normalButtonColor = Color.FromArgb(35, 32, 70);

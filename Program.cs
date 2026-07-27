@@ -16,7 +16,9 @@ namespace GeistStudio
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+
+            GeistStudioWin form = new GeistStudioWin();
+            Application.Run(form);
         }
     }
 }

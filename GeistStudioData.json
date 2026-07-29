@@ -79,5 +79,28 @@
         }
       }
     }
+  },
+  "Config": {
+    "Colors": {
+      "Background": {
+        "Titlebar": "26, 23, 55",
+        "Sidebar": "24, 21, 48",
+        "Navbar": "30, 27, 58",
+        "Background": "30, 27, 58",
+        "BackgroundDark": "38, 35, 72",
+        "Terminal": "18, 16, 38",
+        "FileList": "38, 35, 72",
+        "Scrollbar": "24, 22, 50",
+        "Thumb": "124, 58, 237",
+        "WelcomeButton": "124, 58, 237"
+      },
+      "Foreground": {
+        "MainMenu": "225, 220, 245",
+        "Terminal": "180, 220, 255",
+        "Text": "255, 255, 255",
+        "SubText": "160, 160, 180",
+        "Accent": "140, 110, 255"
+      }
+    }
   }
 }

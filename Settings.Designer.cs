@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using static GeistStudio.Util;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace GeistStudio
@@ -67,7 +68,7 @@ namespace GeistStudio
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = 0;
             button.BackColor = Color.FromArgb(22, 20, 45);
-            button.ForeColor = Color.White;
+            button.ForeColor = Util.Config.Colors.Foreground.Text;
             button.Font = new Font("Segoe UI", 10F);
             button.TextAlign = ContentAlignment.MiddleLeft;
             button.Size = new Size(200, 42);
@@ -107,14 +108,14 @@ namespace GeistStudio
             Label title = new Label();
             title.Text = setting.Name;
             title.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-            title.ForeColor = Color.White;
+            title.ForeColor = Util.Config.Colors.Foreground.Text;
             title.AutoSize = true;
             title.Location = new Point(20, 15);
 
             Label info = new Label();
             info.Text = setting.Description;
             info.Font = new Font("Segoe UI", 9F);
-            info.ForeColor = Color.FromArgb(160, 160, 180);
+            info.ForeColor = Util.Config.Colors.Foreground.SubText;
             info.AutoSize = true;
             info.Location = new Point(20, 43);
 
@@ -124,8 +125,8 @@ namespace GeistStudio
             action.Location = new Point(400, 26);
             action.FlatStyle = FlatStyle.Flat;
             action.FlatAppearance.BorderSize = 0;
-            action.BackColor = Color.FromArgb(124, 58, 237);
-            action.ForeColor = Color.White;
+            action.BackColor = Util.Config.Colors.Background.Thumb;
+            action.ForeColor = Util.Config.Colors.Foreground.Text;
             action.Cursor = Cursors.Hand;
             action.Font = new Font("Segoe UI", 9F);
 
@@ -166,7 +167,7 @@ namespace GeistStudio
             Label title = new Label();
             title.Text = pageName;
             title.Font = new Font("Segoe UI", 24F, FontStyle.Bold);
-            title.ForeColor = Color.White;
+            title.ForeColor = Util.Config.Colors.Foreground.Text;
             title.AutoSize = true;
             title.Location = new Point(40, 30);
 
@@ -175,7 +176,7 @@ namespace GeistStudio
             Label desc = new Label();
             desc.Text = description;
             desc.Font = new Font("Segoe UI", 10F);
-            desc.ForeColor = Color.FromArgb(160, 160, 180);
+            desc.ForeColor = Util.Config.Colors.Foreground.SubText;
             desc.AutoSize = true;
             desc.Location = new Point(43, 75);
 
@@ -375,7 +376,7 @@ namespace GeistStudio
             //
             // Sidebar
             //
-            this.Sidebar.BackColor = System.Drawing.Color.FromArgb(22, 20, 45);
+            this.Sidebar.BackColor = Util.Config.Colors.Background.Sidebar;
             this.Sidebar.Dock = System.Windows.Forms.DockStyle.Left;
             this.Sidebar.Location = new System.Drawing.Point(0, 0);
             this.Sidebar.Name = "Sidebar";
@@ -385,7 +386,7 @@ namespace GeistStudio
             //
             // MainContent
             //
-            this.MainContent.BackColor = System.Drawing.Color.FromArgb(30, 27, 58);
+            this.MainContent.BackColor = Util.Config.Colors.Background.Background;
             this.MainContent.Dock = System.Windows.Forms.DockStyle.Fill;
             this.MainContent.Location = new System.Drawing.Point(220, 0);
             this.MainContent.Name = "MainContent";
@@ -397,7 +398,7 @@ namespace GeistStudio
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(27)))), ((int)(((byte)(58)))));
+            this.BackColor = Util.Config.Colors.Background.Background;
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Controls.Add(this.MainContent);
             this.Controls.Add(this.Sidebar);

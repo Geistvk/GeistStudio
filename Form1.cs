@@ -81,7 +81,7 @@ namespace GeistStudio
 
     public class GeistStudioColorTable : ProfessionalColorTable
     {
-        private static readonly Color Background = Color.FromArgb(30, 27, 58);
+        private static readonly Color Background = Util.Config.Colors.Background.Background;
         private static readonly Color HoverBg = Color.FromArgb(60, 45, 110);
         private static readonly Color SelectedBg = Color.FromArgb(124, 58, 237);
         private static readonly Color BorderColor = Color.FromArgb(45, 40, 80);
@@ -215,7 +215,7 @@ namespace GeistStudio
 
                 if (selected)
                 {
-                    using (SolidBrush accent = new SolidBrush(Color.FromArgb(140, 110, 255)))
+                    using (SolidBrush accent = new SolidBrush(Util.Config.Colors.Foreground.Accent))
                     {
                         e.Graphics.FillRectangle(
                             accent,

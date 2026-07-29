@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static GeistStudio.Util;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace GeistStudio
@@ -73,8 +74,8 @@ namespace GeistStudio
             {
                 Dock = DockStyle.Fill,
                 ScrollBars = RichTextBoxScrollBars.Both,
-                BackColor = Color.FromArgb(18, 16, 38),
-                ForeColor = Color.FromArgb(180, 220, 255),
+                BackColor = Util.Config.Colors.Background.Terminal,
+                ForeColor = Util.Config.Colors.Foreground.Terminal,
                 Font = new Font("Consolas", 11f),
                 BorderStyle = BorderStyle.None,
                 WordWrap = false,
@@ -282,7 +283,7 @@ namespace GeistStudio
             MinimizeBox = false;
             MaximizeBox = false;
             ClientSize = new Size(320, 160);
-            BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(27)))), ((int)(((byte)(58)))));
+            BackColor = Util.Config.Colors.Background.Background;
             ForeColor = Color.White;
             Util.CreateCustomTitleBar(this, "Enter Password", true);
 

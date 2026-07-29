@@ -11,6 +11,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static GeistStudio.Util;
 
 namespace GeistStudio
 {
@@ -567,7 +568,9 @@ namespace GeistStudio
                 MenuItem("Keyboard Shortcuts", "Shows available shortcuts.", () => { }),
                 "-",
                 MenuItem("Check for Updates", "Checks for new versions.", () => { }),
-                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => openInformation())
+                MenuItem("Show Versions", "Shows every Version with it's changes.", () => Util.openInformation()),
+                "-",
+                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => { })
             );
         }
 
@@ -598,12 +601,6 @@ namespace GeistStudio
             result += $"Author:         {(string)root["Author"]}\n";
             result += $"CurVersion:     {(string)root["CurVersion"]}";
             MessageBox.Show(result);
-        }
-
-        private void openInformation()
-        {
-            Information info = new Information();
-            info.Open();
         }
 
         private void WelcomePanel_Paint(object sender, PaintEventArgs e)
@@ -1115,7 +1112,7 @@ namespace GeistStudio
             this.Navbar.Name = "Navbar";
             this.Navbar.Size = new System.Drawing.Size(1280, 25);
             this.Navbar.TabIndex = 0;
-            this.Navbar.BackColor = Color.FromArgb(30, 27, 58);
+            this.Navbar.BackColor = Util.Config.Colors.Background.Navbar;
             // 
             // MainMenu
             // 
@@ -1133,8 +1130,8 @@ namespace GeistStudio
                 this.WindowMenu,
                 this.HelpMenu
             });
-            this.MainMenu.BackColor = Color.FromArgb(30, 27, 58);
-            this.MainMenu.ForeColor = System.Drawing.Color.FromArgb(225, 220, 245);
+            this.MainMenu.BackColor = Util.Config.Colors.Background.Background;
+            this.MainMenu.ForeColor = Util.Config.Colors.Foreground.MainMenu;
             this.MainMenu.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.MainMenu.Renderer = new GeistStudioMenuRenderer();
             this.MainMenu.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
@@ -1224,7 +1221,7 @@ namespace GeistStudio
             this.Sidebar.Name = "Sidebar";
             this.Sidebar.Size = new System.Drawing.Size(226, 556);
             this.Sidebar.TabIndex = 1;
-            this.Sidebar.BackColor = System.Drawing.Color.FromArgb(24, 21, 48);
+            this.Sidebar.BackColor = Util.Config.Colors.Background.Sidebar;
             // 
             // MainContent
             // 
@@ -1234,7 +1231,7 @@ namespace GeistStudio
             this.MainContent.Name = "MainContent";
             this.MainContent.Size = new System.Drawing.Size(1054, 556);
             this.MainContent.TabIndex = 2;
-            this.MainContent.BackColor = Color.FromArgb(30, 27, 58);
+            this.MainContent.BackColor = Util.Config.Colors.Background.Background;
             // 
             // FileList
             // 
@@ -1255,8 +1252,8 @@ namespace GeistStudio
             this.FileList.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
             this.FileList.SelectedIndexChanged += new System.EventHandler(this.FileList_SelectedIndexChanged);
             this.FileList.MouseDown += FileList_MouseDown;
-            this.FileList.BackColor = Color.FromArgb(38, 35, 72);
-            this.FileList.BackgroundColorDark = Color.FromArgb(38, 35, 72);
+            this.FileList.BackColor = Util.Config.Colors.Background.FileList;
+            this.FileList.BackgroundColorDark = Util.Config.Colors.Background.FileList;
             // 
             // home
             // 
@@ -1264,7 +1261,7 @@ namespace GeistStudio
             this.home.Location = new System.Drawing.Point(4, 22);
             this.home.Name = "home";
             this.home.Size = new System.Drawing.Size(1046, 530);
-            this.home.BackColor = Color.FromArgb(30, 27, 58);
+            this.home.BackColor = Util.Config.Colors.Background.Background;
             this.home.TabIndex = 0;
             this.home.Text = "Home";
             this.home.UseVisualStyleBackColor = false;
@@ -1273,7 +1270,7 @@ namespace GeistStudio
             // 
             // WelcomePanel
             // 
-            this.WelcomePanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(27)))), ((int)(((byte)(58)))));
+            this.WelcomePanel.BackColor = Util.Config.Colors.Background.Background;
             this.WelcomePanel.Controls.Add(this.WelcomeOpenButton);
             this.WelcomePanel.Controls.Add(this.WelcomeNewButton);
             this.WelcomePanel.Controls.Add(this.WelcomeSubtitleLabel);
@@ -1287,12 +1284,12 @@ namespace GeistStudio
             // 
             // WelcomeOpenButton
             // 
-            this.WelcomeOpenButton.BackColor = System.Drawing.Color.FromArgb(124, 58, 237);
+            this.WelcomeOpenButton.BackColor = Util.Config.Colors.Background.WelcomeButton;
             this.WelcomeOpenButton.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.WelcomeOpenButton.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(124, 58, 237);
+            this.WelcomeOpenButton.FlatAppearance.BorderColor = Util.Config.Colors.Background.WelcomeButton;
             this.WelcomeOpenButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.WelcomeOpenButton.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.WelcomeOpenButton.ForeColor = System.Drawing.Color.FromArgb(255, 255, 255);
+            this.WelcomeOpenButton.ForeColor = Util.Config.Colors.Foreground.Text;
             this.WelcomeOpenButton.Location = new System.Drawing.Point(280, 270);
             this.WelcomeOpenButton.Name = "WelcomeOpenButton";
             this.WelcomeOpenButton.Size = new System.Drawing.Size(180, 42);
@@ -1303,12 +1300,13 @@ namespace GeistStudio
             // 
             // WelcomeNewButton
             // 
-            this.WelcomeNewButton.BackColor = System.Drawing.Color.FromArgb(124, 58, 237);
+            this.WelcomeNewButton.BackColor = Util.Config.Colors.Background.WelcomeButton;
             this.WelcomeNewButton.Cursor = System.Windows.Forms.Cursors.Hand;
             this.WelcomeNewButton.FlatAppearance.BorderSize = 0;
             this.WelcomeNewButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.WelcomeNewButton.FlatAppearance.BorderColor = Util.Config.Colors.Background.WelcomeButton;
             this.WelcomeNewButton.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.WelcomeNewButton.ForeColor = System.Drawing.Color.FromArgb(255, 255, 255);
+            this.WelcomeNewButton.ForeColor = Util.Config.Colors.Foreground.Text;
             this.WelcomeNewButton.Location = new System.Drawing.Point(84, 270);
             this.WelcomeNewButton.Name = "WelcomeNewButton";
             this.WelcomeNewButton.Size = new System.Drawing.Size(180, 42);
@@ -1346,7 +1344,7 @@ namespace GeistStudio
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1280, 591);
-            this.BackColor = System.Drawing.Color.FromArgb(30, 27, 58);
+            this.BackColor = Util.Config.Colors.Background.Background;
             this.Controls.Add(this.MainContent);
             this.Controls.Add(this.Sidebar);
             this.Controls.Add(this.Navbar);

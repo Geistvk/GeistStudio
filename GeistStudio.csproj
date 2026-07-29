@@ -54,8 +54,7 @@
     <ApplicationIcon>GeistStudio.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>
-    </StartupObject>
+    <StartupObject>GeistStudio.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup />
   <PropertyGroup />
@@ -86,9 +85,6 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="GeistOS.exe" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Form1.cs">
@@ -152,6 +148,13 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Backend\GeistOS.cpp" />
+    <EmbeddedResource Include="Backend\GeistOS.exe" />
+    <Content Include="Backend\lib.cpp" />
+    <Content Include="Backend\rotatingGhost.cpp" />
+    <Content Include="Backend\server.cpp" />
+    <Content Include="Backend\server.exe" />
+    <Content Include="Backend\VariadicTable.h" />
     <Content Include="GeistStudio.ico" />
   </ItemGroup>
   <ItemGroup>

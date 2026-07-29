@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static GeistStudio.Util;
 
 namespace GeistStudio
 {
@@ -40,26 +41,26 @@ namespace GeistStudio
         public SmoothScrollPanel()
         {
             DoubleBuffered = true;
-            BackColor = Color.FromArgb(30, 27, 58);
+            BackColor = Util.Config.Colors.Background.Background;
 
             SetStyle(ControlStyles.Selectable, true);
             TabStop = true;
 
             content = new Panel();
             content.Location = new Point(0, 0);
-            content.BackColor = Color.FromArgb(30, 27, 58);
+            content.BackColor = Util.Config.Colors.Background.Background;
 
             scrollbar = new Panel();
             scrollbar.Width = 10;
             scrollbar.Dock = DockStyle.Right;
-            scrollbar.BackColor = Color.FromArgb(24, 22, 50);
+            scrollbar.BackColor = Util.Config.Colors.Background.Scrollbar;
 
             thumb = new Panel();
             thumb.Width = 10;
             thumb.Height = 40;
             thumb.Left = 0;
             thumb.Top = 0;
-            thumb.BackColor = Color.FromArgb(124, 58, 237);
+            thumb.BackColor = Util.Config.Colors.Background.Thumb;
 
             Controls.Add(content);
             Controls.Add(scrollbar);

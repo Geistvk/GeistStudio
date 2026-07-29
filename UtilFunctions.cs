@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -383,7 +384,7 @@ namespace GeistStudio
             Panel titleBar = new Panel();
             titleBar.Dock = DockStyle.Top;
             titleBar.Height = 35;
-            titleBar.BackColor = Color.FromArgb(26, 23, 55);
+            titleBar.BackColor = Util.Config.Colors.Background.Titlebar;
 
             form.Controls.Add(titleBar);
 
@@ -468,6 +469,9 @@ namespace GeistStudio
         }
 
         public static Settings set;
+        public static Information info;
+        public static Terminal terminal;
+        public static CppProcess cpp = new CppProcess();
 
         public static void OpenSettings() 
         {
@@ -476,8 +480,12 @@ namespace GeistStudio
             set.Open();
         }
 
-        public static Terminal terminal;
-        public static CppProcess cpp = new CppProcess();
+        public static void openInformation()
+        {
+            if (info == null || info.IsDisposed)
+                info = new Information();
+            info.Open();
+        }
 
         public static string RequestHiddenInput(string prompt)
         {
@@ -546,6 +554,132 @@ namespace GeistStudio
 
             String result = cpp.Run("script " + file.Text);
             terminal.Send(result);
+        }
+
+        public struct BackColors {
+            public Color Sidebar;
+            public Color Navbar;
+            public Color Background;
+            public Color Titlebar;
+            public Color Terminal;
+            public Color FileList;
+            public Color Scrollbar;
+            public Color Thumb;
+            public Color WelcomeButton;
+
+            public BackColors(
+                Color sideBarCol,
+                Color navBarCol,
+                Color backGroundCol,
+                Color titleBarCol,
+                Color terminalCol,
+                Color fileListCol,
+                Color scrollBarCol,
+                Color thumbCol,
+                Color welcomeBtnCol
+            ) {
+                Sidebar = sideBarCol;
+                Navbar = navBarCol;
+                Background = backGroundCol;
+                Titlebar = titleBarCol;
+                Terminal = terminalCol;
+                FileList = fileListCol;
+                Scrollbar = scrollBarCol;
+                Thumb = thumbCol;
+                WelcomeButton = welcomeBtnCol;
+            }
+        }
+
+        public struct ForeColors {
+            public Color Terminal;
+            public Color MainMenu;
+            public Color Text;
+            public Color SubText;
+            public Color Accent;
+
+            public ForeColors(
+                Color terminalCol,
+                Color mainMenuCol,
+                Color textCol,
+                Color subTextCol, 
+                Color accentCol
+            ) {
+                Terminal = terminalCol;
+                MainMenu = mainMenuCol;
+                Text = textCol;
+                SubText = subTextCol;
+                Accent = accentCol;
+            }
+        }
+
+        public struct AllColors {
+            public BackColors Background;
+            public ForeColors Foreground;
+
+            public AllColors(
+                BackColors backGroundCols,
+                ForeColors foreGroundCols
+            ) { 
+                Background = backGroundCols;
+                Foreground = foreGroundCols;
+            }
+        }
+
+        public struct ConfigThis
+        {
+            public AllColors Colors;
+
+            public ConfigThis(
+                AllColors colorsCol
+            ) {
+                Colors = colorsCol;
+            }
+        }
+
+        public static ConfigThis Config = loadColors();
+
+        public static ConfigThis loadColors()
+        {
+            Dictionary<string, object> root = (Dictionary<string, object>)JsonParser.LoadEmbeddedJson("GeistStudio.GeistStudioData.json");
+            Dictionary<string, object> config = (Dictionary<string, object>)root["Config"];
+            Dictionary<string, object> colors = (Dictionary<string, object>)config["Colors"];
+
+            Color processColor(String parent, String Name) {
+                Dictionary<string, object> parentCol = (Dictionary<string, object>)colors[parent];
+                String color = (string)parentCol[Name];
+                String[] colArr = color.Trim().Split(',');
+
+                return Color.FromArgb(
+                    Int32.Parse(colArr[0]),
+                    Int32.Parse(colArr[1]),
+                    Int32.Parse(colArr[2])
+                );
+            }
+
+            ConfigThis result = new ConfigThis(
+                new AllColors(
+                    new BackColors(
+                        processColor("Background", "Sidebar"),
+                        processColor("Background", "Navbar"),
+                        processColor("Background", "Background"),
+                        processColor("Background", "Titlebar"),
+                        processColor("Background", "Terminal"),
+                        processColor("Background", "FileList"),
+                        processColor("Background", "Scrollbar"),
+                        processColor("Background", "Thumb"),
+                        processColor("Background", "WelcomeButton")
+                    ),
+                    new ForeColors(
+                        processColor("Foreground", "Terminal"),
+                        processColor("Foreground", "MainMenu"),
+                        processColor("Foreground", "Text"),
+                        processColor("Foreground", "SubText"),
+                        processColor("Foreground", "Accent")
+                    )
+                )
+            );
+
+            return result;
         }
     }
 

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Runtime.Remoting.Contexts;
 using System.Windows.Forms;
+using static GeistStudio.Util;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace GeistStudio
@@ -37,7 +38,7 @@ namespace GeistStudio
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(27)))), ((int)(((byte)(58)))));
+            this.BackColor = Util.Config.Colors.Background.Background;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Text = "Terminal";

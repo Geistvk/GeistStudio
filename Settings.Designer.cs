@@ -27,107 +27,6 @@ namespace GeistStudio
             base.Dispose(disposing);
         }
 
-        [DllImport("user32.dll")]
-        private static extern void ReleaseCapture();
-
-        [DllImport("user32.dll")]
-        private static extern int SendMessage(
-            IntPtr hWnd,
-            int Msg,
-            int wParam,
-            int lParam);
-
-        private Button CreateWindowButton(string text, bool isClose = false)
-        {
-            Button btn = new Button();
-
-            btn.Text = text;
-            btn.Width = 45;
-            btn.Dock = DockStyle.Right;
-            btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderSize = 0;
-            btn.BackColor = normalButtonColor;
-            btn.ForeColor = Color.FromArgb(210, 210, 230);
-            btn.Cursor = Cursors.Hand;
-
-            btn.Font = new Font("Segoe UI Symbol", 12);
-
-            btn.MouseEnter += (s, e) =>
-            {
-                btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
-            };
-
-            btn.MouseLeave += (s, e) =>
-            {
-                btn.BackColor = normalButtonColor;
-            };
-
-            return btn;
-        }
-
-        private void CreateCustomTitleBar()
-        {
-            titleBar = new Panel();
-            titleBar.Dock = DockStyle.Top;
-            titleBar.Height = 35;
-            titleBar.BackColor = Color.FromArgb(26, 23, 55);
-
-            this.Controls.Add(titleBar);
-
-            Label title = new Label();
-            title.Text = "GeistStudio Settings";
-            title.ForeColor = Color.FromArgb(230, 225, 245);
-            title.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            title.Location = new Point(15, 8);
-            title.AutoSize = true;
-
-            titleBar.Controls.Add(title);
-
-            minimizeButton = CreateWindowButton("─");
-            minimizeButton.Dock = DockStyle.Right;
-
-            maximizeButton = CreateWindowButton("□");
-            maximizeButton.Dock = DockStyle.Right;
-
-            closeButton = CreateWindowButton("×", true);
-            closeButton.Dock = DockStyle.Right;
-
-            minimizeButton.Click += (s, e) =>
-            {
-                this.WindowState = FormWindowState.Minimized;
-            };
-
-            maximizeButton.Click += (s, e) =>
-            {
-                this.WindowState =
-                    this.WindowState == FormWindowState.Maximized
-                    ? FormWindowState.Normal
-                    : FormWindowState.Maximized;
-            };
-
-            closeButton.Click += (s, e) =>
-            {
-                this.Close();
-            };
-
-            titleBar.Controls.Add(minimizeButton);
-            titleBar.Controls.Add(maximizeButton);
-            titleBar.Controls.Add(closeButton);
-
-            titleBar.MouseDown += (s, e) =>
-            {
-                if (e.Button == MouseButtons.Left)
-                {
-                    ReleaseCapture();
-                    SendMessage(
-                        Handle,
-                        0xA1,
-                        0x2,
-                        0);
-                }
-            };
-        }
-
         private void StyleScrollbars(Control parent)
         {
             foreach (Control c in parent.Controls)
@@ -502,10 +401,9 @@ namespace GeistStudio
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Controls.Add(this.MainContent);
             this.Controls.Add(this.Sidebar);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Name = "Settings";
             this.Text = "Settings";
-            CreateCustomTitleBar();
+            Util.CreateCustomTitleBar(this, "GeistStudio Settings");
             this.ResumeLayout(false);
 
         }
@@ -520,15 +418,8 @@ namespace GeistStudio
             ShowPage("Home");
         }
 
-        private Panel titleBar;
-        private Button closeButton;
-        private Button maximizeButton;
-        private Button minimizeButton;
-
         private Dictionary<string, SmoothScrollPanel> Pages = new Dictionary<string, SmoothScrollPanel>();
 
-        private Color closeColor = Color.FromArgb(220, 50, 50);
-        private Color normalButtonColor = Color.FromArgb(35, 32, 70);
         private Panel Sidebar;
         private Panel MainContent;
     }

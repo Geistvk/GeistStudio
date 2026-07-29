@@ -1,13 +1,19 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace GeistStudio
 {
@@ -22,36 +28,38 @@ namespace GeistStudio
         private List<string> commandHistory = new List<string>();
         private int historyIndex = -1;
 
-        private String initComp;
-        private String CreateCons;
-        private String AddFuncs;
-        private String SendInitHelp;
-        private String WriteProm;
+        private String[] initializationData;
+        private String[] initHeader;
 
         public Terminal(Boolean runCode)
         {
-            var start = DateTime.Now;
-            InitializeComponent();
-            this.initComp = (String)((DateTime.Now - start).TotalMilliseconds + " ms");
+            initHeader = new string[] { 
+                "InitializeComponent", 
+                "CreateConsole",
+                "AddConsoleFunctions",
+                "DisplayInitializationHelp",
+                "WritePrompt"
+            };
 
-            start = DateTime.Now;
-            CreateConsole();
-            this.CreateCons = (DateTime.Now - start).TotalMilliseconds + " ms";
-
-            start = DateTime.Now;
-            AddConsFuncs();
-            this.AddFuncs = (DateTime.Now - start).TotalMilliseconds + " ms";
-
-            start = DateTime.Now;
-            Send("Type 'data' to see the initialization data", false);
-            this.SendInitHelp = (DateTime.Now - start).TotalMilliseconds + " ms";
-
-            start = DateTime.Now;
-            if (!runCode)
-                WritePrompt();
-            this.WriteProm = (DateTime.Now - start).TotalMilliseconds + " ms";
+            initializationData = new string[] {
+                addTrackingData(() => InitializeComponent()),
+                addTrackingData(() => CreateConsole()),
+                addTrackingData(() => AddConsFuncs()),
+                addTrackingData(() => Send("Type 'data' to see the initialization data", false)),
+                addTrackingData(() => {
+                    if (!runCode)
+                        WritePrompt();
+                })
+            };
 
             Shown += Terminal_Shown;
+        }
+
+        private String addTrackingData(Action func)
+        {
+            var start = DateTime.Now;
+            func();
+            return (String)((DateTime.Now - start).TotalMilliseconds + " ms");
         }
 
         private async void Terminal_Shown(object sender, EventArgs e)
@@ -74,7 +82,7 @@ namespace GeistStudio
                 DetectUrls = false,
                 Multiline = true,
                 AcceptsTab = true,
-                ShortcutsEnabled = false
+                ShortcutsEnabled = true
             };
 
             Controls.Add(console);
@@ -209,15 +217,16 @@ namespace GeistStudio
                 }
                 else if (line == "data")
                 {
+                    int maxWidth = this.initHeader.Max(h => h.Length) + 2;
                     String InitData = "";
                     InitData += "Initialization Data: \n";
-                    InitData += $"    InitializeComponents:   {this.initComp}\n";
-                    InitData += $"    CreateConsole:          {this.CreateCons}\n";
-                    InitData += $"    AddConsoleFuncs:        {this.AddFuncs}\n";
-                    InitData += $"    SendInitHelp:           {this.SendInitHelp}\n";
-                    InitData += $"    WritePrompt:            {this.WriteProm}";
+                    for (int i = 0; i < initializationData.Length; i++)
+                    {
+                        InitData += $"    {this.initHeader[i].PadRight(maxWidth)} : {this.initializationData[i]}";
+                        if (i != initializationData.Length - 1)
+                            InitData += "\n";
+                    }
                     Send(InitData);
-
                     return;
                 }
 
@@ -258,6 +267,73 @@ namespace GeistStudio
 
             if (nextPrompt)
                 WritePrompt();
+        }
+    }
+
+    public class MaskedInputDialog : Form
+    {
+        public string Result { get; private set; }
+
+        public MaskedInputDialog(string prompt)
+        {
+            Text = "Password";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            StartPosition = FormStartPosition.CenterParent;
+            MinimizeBox = false;
+            MaximizeBox = false;
+            ClientSize = new Size(320, 160);
+            BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(27)))), ((int)(((byte)(58)))));
+            ForeColor = Color.White;
+            Util.CreateCustomTitleBar(this, "Enter Password", true);
+
+            var label = new Label
+            {
+                Text = prompt,
+                AutoSize = true,
+                Font = new Font("Consolas", 11f),
+                Location = new Point(10, 60)
+            };
+
+            TextBox textBox = new TextBox
+            {
+                UseSystemPasswordChar = true,
+                Location = new Point(12, 86),
+                Font = new Font("Consolas", 11f),
+                TabStop = true,
+                Width = 296
+            };
+
+            var okButton = new Button
+            {
+                Text = "OK",
+                DialogResult = DialogResult.OK,
+                Location = new Point(152, 120)
+            };
+
+            var cancelButton = new Button
+            {
+                Text = "Abbrechen",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(233, 120)
+            };
+
+            AcceptButton = okButton;
+            CancelButton = cancelButton;
+
+            Controls.Add(label);
+            Controls.Add(textBox);
+            Controls.Add(okButton);
+            Controls.Add(cancelButton);
+
+            this.Shown += (s, e) =>
+            {
+                textBox.Focus();
+            };
+
+            this.FormClosing += (s, e) =>
+            {
+                Result = (DialogResult == DialogResult.OK) ? textBox.Text : null;
+            };
         }
     }
 }

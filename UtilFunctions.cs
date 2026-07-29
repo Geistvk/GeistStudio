@@ -9,10 +9,13 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Security;
+using System.Security.Permissions;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace GeistStudio
 {
@@ -20,6 +23,16 @@ namespace GeistStudio
         public Util() { 
         
         }
+
+        [DllImport("user32.dll")]
+        private static extern void ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        private static extern int SendMessage(
+            IntPtr hWnd,
+            int Msg,
+            int wParam,
+            int lParam);
 
         private static void handleFileFromIndex(GeistStudioWin form, int i, bool closeFile) 
         {
@@ -256,19 +269,236 @@ namespace GeistStudio
             }
         }
 
+        private static Point lastToolTipPos = Point.Empty;
+        private static Control lastToolTipControl = null;
+        private static string lastToolTipText = "";
+
+        public static void addBtnToTitleBar(
+            GeistStudioWin form, 
+            Panel parent, 
+            String btn, 
+            String desc, 
+            Action func
+        ) {
+            Button customBtn = new Button();
+            customBtn.Text = btn;
+            customBtn.Width = 45;
+            customBtn.TabStop = false;
+            customBtn.Cursor = Cursors.Hand;
+            customBtn.Dock = DockStyle.Right;
+            customBtn.FlatStyle = FlatStyle.Flat;
+            customBtn.FlatAppearance.BorderSize = 0;
+            customBtn.Font = new Font("Segoe UI Symbol", 12);
+            customBtn.ForeColor = Color.FromArgb(210, 210, 230);
+
+            customBtn.MouseEnter += (s, e) => ShowStyledToolTip(form, parent, desc);
+            customBtn.MouseMove += (s, e) => UpdateStyledToolTip(form, parent, desc);
+            customBtn.MouseLeave += (s, e) => HideStyledToolTip(form, parent);
+            customBtn.Click += (s, e) => func();
+
+            parent.Controls.Add(customBtn);
+        }
+
+        private static void HideStyledToolTip(GeistStudioWin form, Control parent)
+        {
+            form.StyledToolTip.Hide(parent);
+
+            lastToolTipControl = null;
+            lastToolTipText = "";
+            lastToolTipPos = Point.Empty;
+        }
+
+        private static void UpdateStyledToolTip(
+            GeistStudioWin form,
+            Control parent,
+            string desc
+        ) {
+            Point pos = parent.PointToClient(Cursor.Position);
+            pos.Offset(16, 24);
+
+            if (lastToolTipControl == parent &&
+                lastToolTipText == desc &&
+                Math.Abs(pos.X - lastToolTipPos.X) < 4 &&
+                Math.Abs(pos.Y - lastToolTipPos.Y) < 4)
+                return;
+
+            lastToolTipPos = pos;
+            lastToolTipControl = parent;
+            lastToolTipText = desc;
+
+            form.StyledToolTip.Hide(parent);
+            form.StyledToolTip.Show(desc, parent, pos);
+        }
+
+        private static void ShowStyledToolTip(
+            GeistStudioWin form,
+            Control parent,
+            string desc
+        ) {
+            if (string.IsNullOrWhiteSpace(desc))
+                return;
+
+            Point pos = parent.PointToClient(Cursor.Position);
+            pos.Offset(16, 24);
+
+            lastToolTipPos = pos;
+            lastToolTipControl = parent;
+            lastToolTipText = desc;
+
+            form.StyledToolTip.Hide(parent);
+            form.StyledToolTip.Show(desc, parent, pos);
+        }
+
+        private static Button CreateWindowButton(string text, bool isClose = false)
+        {
+            Color closeColor = Color.FromArgb(220, 50, 50);
+            Color normalButtonColor = Color.FromArgb(35, 32, 70);
+
+            Button btn = new Button();
+
+            btn.Text = text;
+            btn.Width = 45;
+            btn.Cursor = Cursors.Hand;
+            btn.Dock = DockStyle.Right;
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 0;
+            btn.BackColor = normalButtonColor;
+            btn.Font = new Font("Segoe UI Symbol", 12);
+            btn.ForeColor = Color.FromArgb(210, 210, 230);
+
+            btn.MouseEnter += (s, e) => btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
+            btn.MouseLeave += (s, e) => btn.BackColor = normalButtonColor;
+
+            return btn;
+        }
+
+        public static void CreateCustomTitleBar(
+            Form form, 
+            String text, 
+            Boolean isDialog = false, 
+            Boolean isMain = false
+        ) {
+            form.FormBorderStyle = FormBorderStyle.None;
+
+            Panel titleBar = new Panel();
+            titleBar.Dock = DockStyle.Top;
+            titleBar.Height = 35;
+            titleBar.BackColor = Color.FromArgb(26, 23, 55);
+
+            form.Controls.Add(titleBar);
+
+            Label title = new Label();
+            title.Text = text;
+            title.ForeColor = Color.FromArgb(230, 225, 245);
+            title.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            title.Location = new Point(15, 8);
+            title.AutoSize = true;
+
+            titleBar.Controls.Add(title);
+
+            if (isMain)
+            {
+                addBtnToTitleBar(
+                    (GeistStudioWin)form, 
+                    titleBar, 
+                    "▶", 
+                    "Run the GeistScript Code", 
+                    () => ExecuteCode((GeistStudioWin)form)
+                );
+                addBtnToTitleBar(
+                    (GeistStudioWin)form, 
+                    titleBar, 
+                    "💻", 
+                    "Open a new Terminal", 
+                    () => OpenTerminal((GeistStudioWin)form)
+                );
+                addBtnToTitleBar(
+                    (GeistStudioWin)form, 
+                    titleBar, 
+                    "⛭", 
+                    "Open the Settings", 
+                    () => OpenSettings()
+                );
+            }
+
+            if (!isDialog)
+            {
+                Button minimizeButton = CreateWindowButton("─");
+                minimizeButton.Dock = DockStyle.Right;
+
+                Button maximizeButton = CreateWindowButton("□");
+                maximizeButton.Dock = DockStyle.Right;
+
+                titleBar.Controls.Add(minimizeButton);
+                titleBar.Controls.Add(maximizeButton);
+
+                minimizeButton.Click += (s, e) => form.WindowState = FormWindowState.Minimized;
+                maximizeButton.Click += (s, e) => {
+                    form.WindowState =
+                        form.WindowState == FormWindowState.Maximized
+                        ? FormWindowState.Normal
+                        : FormWindowState.Maximized;
+                };
+            }
+
+            Button closeButton = CreateWindowButton("×", true);
+            closeButton.Dock = DockStyle.Right;
+
+            closeButton.Click += (s, e) => form.Close();
+
+            titleBar.Controls.Add(closeButton);
+
+            titleBar.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    ReleaseCapture();
+                    SendMessage(
+                        form.Handle,
+                        0xA1,
+                        0x2,
+                        0);
+                }
+            };
+        }
+
         public static void gotToHome(GeistStudioWin form)
         {
             form.FileList.SelectedTab = form.home;
         }
 
+        public static Settings set;
+
         public static void OpenSettings() 
         {
-            Settings set = new Settings();
+            if (set == null || set.IsDisposed)
+                set = new Settings();
             set.Open();
         }
 
         public static Terminal terminal;
-        private static CppProcess cpp = new CppProcess();
+        public static CppProcess cpp = new CppProcess();
+
+        public static string RequestHiddenInput(string prompt)
+        {
+            using (var done = new SemaphoreSlim(0, 1))
+            {
+                string result = null;
+
+                terminal.Invoke((Action)(() =>
+                {
+                    using (var dlg = new MaskedInputDialog(prompt))
+                    {
+                        dlg.ShowDialog(terminal.FindForm());
+                        result = dlg.Result;
+                    }
+                    done.Release();
+                }));
+
+                done.Wait();
+                return result ?? "";
+            }
+        }
 
         public static void OpenTerminal(GeistStudioWin form, Boolean runCode = false, String fileName = "")
         {
@@ -279,24 +509,21 @@ namespace GeistStudio
             }
 
             if (terminal == null || terminal.IsDisposed)
-            {
                 terminal = new Terminal(runCode);
-            }
 
             terminal.CommandEntered += (input) =>
             {
-                System.Threading.Tasks.Task.Run(() =>
+                Task.Run(() =>
                 {
-                    string result;
-                    result = cpp.Run(input);
+                    string result = cpp.RunInteractive(input, prompt => RequestHiddenInput(prompt));
                     terminal.Send(result);
                 });
             };
 
-            terminal.FormClosed += (s, e) =>
+            /*terminal.FormClosed += (s, e) =>
             {
                 terminal = null;
-            };
+            };*/
 
             if (runCode)
                 terminal.Send(terminal.Prompt + "script " + fileName, false);
@@ -325,12 +552,21 @@ namespace GeistStudio
     public class CppProcess : IDisposable
     {
         private readonly Process process;
-        private readonly BlockingCollection<string> outputLines = new BlockingCollection<string>();
+
+        // Zeichenweise statt zeilenweise gepuffert: BeginOutputReadLine liefert
+        // erst dann etwas, wenn ein '\n' im Stream ankommt. Prompts wie
+        // "Passwort: ", die GeistOS OHNE folgendes std::endl ausgibt, wuerden
+        // damit nie (oder viel zu spaet) bei uns ankommen. Deshalb pumpen wir
+        // den Stream selbst, Zeichen fuer Zeichen, in eine BlockingCollection.
+        private readonly BlockingCollection<char> outputChars = new BlockingCollection<char>();
+        private readonly Thread stdoutPump;
+        private readonly Thread stderrPump;
+
         private readonly StringBuilder errorLog = new StringBuilder();
         private readonly object errorLock = new object();
         private readonly string tempExePath;
 
-        // Nach dem Start ausgegebener Begrüßungstext ("Type 'help' for some Commands...")
+        // Nach dem Start ausgegebener Begruessungstext ("Type 'help' for some Commands...")
         public string Banner { get; private set; } = "";
 
         /// <param name="embeddedResourceName">
@@ -352,24 +588,25 @@ namespace GeistStudio
             process.StartInfo.StandardOutputEncoding = Encoding.UTF8;
             process.StartInfo.StandardErrorEncoding = Encoding.UTF8;
 
-            process.OutputDataReceived += (sender, e) =>
-            {
-                if (e.Data != null)
-                    outputLines.Add(StripAnsi(e.Data));
-            };
-
-            process.ErrorDataReceived += (sender, e) =>
-            {
-                if (e.Data != null)
-                {
-                    lock (errorLock) { errorLog.AppendLine(e.Data); }
-                }
-            };
-
             process.Start();
 
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+            // WICHTIG: Kein BeginOutputReadLine mehr. Stattdessen lesen wir in
+            // eigenen Hintergrund-Threads roh Zeichen fuer Zeichen, damit auch
+            // ungeflushte / nicht mit '\n' abgeschlossene Prompts (z.B. eine
+            // Passwortabfrage) bei uns landen, sobald sie im Pipe-Puffer stehen.
+            stdoutPump = new Thread(() => PumpStdOut(process.StandardOutput))
+            {
+                IsBackground = true,
+                Name = "CppProcess-stdout-pump"
+            };
+            stdoutPump.Start();
+
+            stderrPump = new Thread(() => PumpStdErr(process.StandardError))
+            {
+                IsBackground = true,
+                Name = "CppProcess-stderr-pump"
+            };
+            stderrPump.Start();
 
             process.StandardInput.AutoFlush = true;
 
@@ -378,8 +615,40 @@ namespace GeistStudio
             Banner = CollectUntilIdle(idleMs: 300, maxTotalMs: 2000, requireAny: false);
         }
 
+        private void PumpStdOut(StreamReader reader)
+        {
+            try
+            {
+                int ch;
+                while ((ch = reader.Read()) != -1)
+                {
+                    outputChars.Add((char)ch);
+                }
+            }
+            catch (ObjectDisposedException) { /* Prozess/Reader wurde geschlossen */ }
+            catch (IOException) { /* Pipe wurde geschlossen (Prozessende) */ }
+            finally
+            {
+                try { outputChars.CompleteAdding(); } catch (InvalidOperationException) { }
+            }
+        }
+
+        private void PumpStdErr(StreamReader reader)
+        {
+            try
+            {
+                int ch;
+                while ((ch = reader.Read()) != -1)
+                {
+                    lock (errorLock) { errorLog.Append((char)ch); }
+                }
+            }
+            catch (ObjectDisposedException) { }
+            catch (IOException) { }
+        }
+
         /// <summary>
-        /// Kopiert die eingebettete .exe Resource in eine temporäre Datei und gibt deren Pfad zurück.
+        /// Kopiert die eingebettete .exe Resource in eine temporaere Datei und gibt deren Pfad zurueck.
         /// </summary>
         private static string ExtractEmbeddedExe(string resourceName)
         {
@@ -423,35 +692,178 @@ namespace GeistStudio
         }
 
         /// <summary>
-        /// Führt einen Befehl im GeistOS-Terminal aus und gibt die komplette Ausgabe zurück.
+        /// Fuehrt einen TOP-LEVEL Befehl im GeistOS-Terminal aus und gibt die komplette Ausgabe zurueck.
         ///
         /// WICHTIG: GeistOS' run()-Schleife liest pro Durchlauf ZWEI Zeilen von stdin
         /// (siehe GeistOS.cpp, Terminal::run(), ca. Zeile 1394 und 1410):
-        ///   1. Zeile -> wird nur für den Echo-/Exit-Check verwendet
-        ///   2. Zeile -> wird tatsächlich als Befehl ausgeführt
+        ///   1. Zeile -> wird nur fuer den Echo-/Exit-Check verwendet
+        ///   2. Zeile -> wird tatsaechlich als Befehl ausgefuehrt
         /// Deshalb senden wir den Befehl absichtlich zweimal.
+        ///
+        /// Loest der Befehl selbst einen Folge-Prompt aus (z.B. eine Passwortabfrage
+        /// via getHiddenInput()), NICHT Run() erneut aufrufen, sondern SendLine()
+        /// benutzen - diese Prompts lesen naemlich nur EINE Zeile pro Aufruf.
         /// </summary>
         public string Run(string command, int idleMs = 200, int maxTotalMs = 15000)
         {
             if (process.HasExited)
                 throw new InvalidOperationException(
-                    $"Der C++ Prozess läuft nicht mehr (ExitCode {process.ExitCode}).");
+                    $"Der C++ Prozess laeuft nicht mehr (ExitCode {process.ExitCode}).");
 
             process.StandardInput.WriteLine(command);
             process.StandardInput.WriteLine(command);
 
-            string result = CollectUntilIdle(idleMs, maxTotalMs, requireAny: true);
-
-            if (result.Length == 0)
-                result = "";
-
-            return result;
+            return CollectUntilIdle(idleMs, maxTotalMs, requireAny: true);
         }
 
         /// <summary>
-        /// Sammelt Zeilen aus der Output-Queue, bis für <paramref name="idleMs"/> ms
-        /// keine neue Zeile mehr ankommt (= Prozess wartet vermutlich wieder auf Input),
-        /// oder bis <paramref name="maxTotalMs"/> insgesamt erreicht ist.
+        /// Schluesselwoerter, bei deren Vorkommen im EINGEGEBENEN BEFEHL (nicht im
+        /// Output!) davon ausgegangen wird, dass der Befehl eine maskierte
+        /// Eingabe (z.B. ein Passwort) ausloesen wird. Bei Bedarf erweitern,
+        /// z.B. um "passwd", "login", etc.
+        /// </summary>
+        public static readonly string[] DefaultHiddenInputCommands =
+        {
+            "sudo", "passwd"
+        };
+
+        /// <summary>
+        /// Prueft, ob der eingegebene Befehl selbst (nicht dessen Ausgabe) darauf
+        /// hindeutet, dass eine maskierte Eingabe folgen wird - z.B. weil "sudo"
+        /// im Befehl vorkommt.
+        /// </summary>
+        public static bool CommandTriggersHiddenInput(string command)
+        {
+            if (string.IsNullOrEmpty(command))
+                return false;
+
+            foreach (var keyword in DefaultHiddenInputCommands)
+            {
+                if (command.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Fuehrt einen Befehl aus wie Run(), erkennt aber schon VOR der Ausfuehrung
+        /// anhand des eingegebenen Befehls selbst (nicht anhand des Outputs), ob
+        /// danach eine maskierte Eingabe folgen wird - standardmaessig, wenn "sudo"
+        /// im Befehl vorkommt (siehe DefaultHiddenInputCommands) - und beantwortet
+        /// sie ueber die uebergebene Callback-Funktion.
+        ///
+        /// <paramref name="onHiddenInputRequested"/> bekommt den bis dahin gesammelten
+        /// Output (z.B. den "[sudo] Passwort fuer ..." Prompt) und MUSS synchron
+        /// (blockierend) den vom Nutzer eingegebenen, unmaskierten Wert zurueckgeben -
+        /// typischerweise indem euer Terminal-UI auf ein Passwort-Eingabefeld
+        /// umschaltet und wartet, bis Enter gedrueckt wird.
+        ///
+        /// Im zurueckgegebenen Gesamt-Output wird die Eingabe selbst NICHT im Klartext
+        /// angezeigt (nur "****"), damit nichts versehentlich im Terminal auftaucht.
+        ///
+        /// Befehle, die keines der DefaultHiddenInputCommands-Schluesselwoerter
+        /// enthalten, verhalten sich exakt wie Run().
+        /// </summary>
+        public string RunInteractive(
+            string command,
+            Func<string, string> onHiddenInputRequested,
+            Func<string, bool> commandTriggersHiddenInput = null,
+            int idleMs = 200,
+            int maxTotalMs = 15000,
+            int maxPrompts = 1)
+        {
+            if (commandTriggersHiddenInput == null)
+                commandTriggersHiddenInput = CommandTriggersHiddenInput;
+
+            if (process.HasExited)
+                throw new InvalidOperationException($"Der C++ Prozess laeuft nicht mehr (ExitCode {process.ExitCode}).");
+
+            var combined = new StringBuilder();
+
+            process.StandardInput.WriteLine(command);
+            process.StandardInput.WriteLine(command);
+
+            string chunk = CollectUntilIdle(idleMs, maxTotalMs, requireAny: true);
+            combined.Append(chunk);
+
+            if (commandTriggersHiddenInput(command))
+            {
+                for (int i = 0; i < maxPrompts; i++)
+                {
+                    if (process.HasExited)
+                        break;
+
+                    string secret = onHiddenInputRequested != null ? onHiddenInputRequested(chunk) : "";
+
+                    process.StandardInput.WriteLine(secret);
+
+                    String stars = "";
+                    foreach (char c in secret)
+                        stars += "*";
+                    stars += "\n";
+
+                    combined.Append(stars);
+
+                    chunk = CollectUntilIdle(idleMs, maxTotalMs, requireAny: false);
+                    combined.Append(chunk);
+                }
+            }
+
+            return combined.ToString();
+        }
+
+        /// <summary>
+        /// Sendet EINE einzelne Zeile an den Prozess (KEIN Verdoppeln wie bei Run()).
+        ///
+        /// Zu benutzen fuer Antworten auf Prompts, die ein Befehl selbst waehrend
+        /// seiner Ausfuehrung stellt, z.B. "Benutzername: " / "Passwort: " ueber
+        /// getHiddenInput(). Diese lesen (nach dem C++-Fix auf std::getline)
+        /// jeweils nur eine Zeile - ein zweites WriteLine wuerde als naechster
+        /// Befehl fehlinterpretiert werden.
+        /// </summary>
+        public string SendLine(string text, int idleMs = 200, int maxTotalMs = 15000)
+        {
+            if (process.HasExited)
+                throw new InvalidOperationException(
+                    $"Der C++ Prozess laeuft nicht mehr (ExitCode {process.ExitCode}).");
+
+            process.StandardInput.WriteLine(text);
+
+            return CollectUntilIdle(idleMs, maxTotalMs, requireAny: false);
+        }
+
+        /// <summary>
+        /// Wartet, bis der bisher angekommene (aber noch nicht abgeholte) Output
+        /// einen bestimmten Teilstring enthaelt, z.B. um sicherzugehen, dass der
+        /// "Passwort:"-Prompt wirklich angekommen ist, bevor man antwortet.
+        /// Gibt den bis dahin gesammelten (ANSI-bereinigten) Output zurueck.
+        /// </summary>
+        public string WaitForPrompt(string expectedSubstring, int pollMs = 20, int maxTotalMs = 5000)
+        {
+            var sb = new StringBuilder();
+            var timer = Stopwatch.StartNew();
+
+            while (timer.ElapsedMilliseconds < maxTotalMs)
+            {
+                while (outputChars.TryTake(out char c, 0))
+                    sb.Append(c);
+
+                string current = StripAnsi(sb.ToString());
+                if (current.Contains(expectedSubstring))
+                    return current;
+
+                Thread.Sleep(pollMs);
+            }
+
+            return StripAnsi(sb.ToString());
+        }
+
+        /// <summary>
+        /// Sammelt Zeichen aus der Output-Queue, bis fuer <paramref name="idleMs"/> ms
+        /// keine neuen Zeichen mehr ankommen (= Prozess wartet vermutlich wieder auf Input),
+        /// oder bis <paramref name="maxTotalMs"/> insgesamt erreicht ist. Faengt dank
+        /// zeichenweisem Lesen auch Prompts ohne abschliessendes '\n' ab.
         /// </summary>
         private string CollectUntilIdle(int idleMs, int maxTotalMs, bool requireAny)
         {
@@ -465,9 +877,9 @@ namespace GeistStudio
                     ? idleMs
                     : (int)Math.Max(1, maxTotalMs - totalTimer.ElapsedMilliseconds);
 
-                if (outputLines.TryTake(out string line, waitMs))
+                if (outputChars.TryTake(out char c, waitMs))
                 {
-                    sb.AppendLine(line);
+                    sb.Append(c);
                     gotAny = true;
                 }
                 else
@@ -479,7 +891,7 @@ namespace GeistStudio
             if (requireAny && !gotAny)
                 return "";
 
-            return sb.ToString().TrimEnd('\r', '\n');
+            return StripAnsi(sb.ToString()).TrimEnd('\r', '\n');
         }
 
         private static string StripAnsi(string input)
@@ -525,10 +937,16 @@ namespace GeistStudio
         public void Dispose()
         {
             Close();
-            outputLines.Dispose();
+
+            // Pumps sollten sich nach Prozessende selbst beenden (Read() liefert -1
+            // bzw. wirft eine IOException). Kurz warten, dann Ressourcen freigeben.
+            stdoutPump.Join(1000);
+            stderrPump.Join(1000);
+
+            outputChars.Dispose();
             process.Dispose();
 
-            // Temporäre exe wieder aufräumen. Direkt nach Prozessende kann die Datei
+            // Temporaere exe wieder aufraeumen. Direkt nach Prozessende kann die Datei
             // kurzzeitig noch vom OS gesperrt sein, daher ein paar Versuche mit Wartezeit.
             for (int attempt = 0; attempt < 5; attempt++)
             {

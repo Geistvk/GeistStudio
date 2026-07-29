@@ -16,6 +16,7 @@ namespace GeistStudio
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            FormUtils.SetDefaultIcon();
 
             GeistStudioWin form = new GeistStudioWin();
             Application.Run(form);

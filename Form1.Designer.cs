@@ -1,12 +1,16 @@
-﻿using System;
+﻿using GeistStudio;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Windows.Forms;
 using System.IO;
-using GeistStudio;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace GeistStudio
 {
@@ -23,24 +27,6 @@ namespace GeistStudio
         /// ChangeTitleBarColor(Color.FromArgb(26, 23, 55));
         private int tabSize = 0;
         private const int DWMWA_CAPTION_COLOR = 35;
-
-        private Panel titleBar;
-        private Button closeButton;
-        private Button maximizeButton;
-        private Button minimizeButton;
-
-        private Color closeColor = Color.FromArgb(220, 50, 50);
-        private Color normalButtonColor = Color.FromArgb(35, 32, 70);
-
-        [DllImport("user32.dll")]
-        private static extern void ReleaseCapture();
-
-        [DllImport("user32.dll")]
-        private static extern int SendMessage(
-            IntPtr hWnd,
-            int Msg,
-            int wParam,
-            int lParam);
 
         /// <summary>
         /// Verwendete Ressourcen bereinigen.
@@ -313,25 +299,73 @@ namespace GeistStudio
             return IntPtr.Zero;
         }
 
+        private Point lastToolTipPos = Point.Empty;
+        private Control lastToolTipControl = null;
+        private string lastToolTipText = "";
+
         private ToolStripMenuItem CreateMenuItem(string name, string description, Action func)
         {
             ToolStripMenuItem item = new ToolStripMenuItem(name);
             item.AutoToolTip = false;
 
-            item.MouseEnter += (s, e) => ShowStyledToolTip(description);
-            item.MouseLeave += (s, e) => this.StyledToolTip.Hide(this.MainMenu);
+            item.MouseEnter += (s, e) => ShowStyledToolTip(this, this.MainMenu, description);
+            item.MouseMove += (s, e) => UpdateStyledToolTip(this, this.MainMenu, description);
+            item.MouseLeave += (s, e) => HideStyledToolTip(this, this.MainMenu);
             item.Click += (s, e) => func();
 
             return item;
         }
 
-        private void ShowStyledToolTip(string description)
+        private void HideStyledToolTip(GeistStudioWin form, Control parent)
         {
-            if (string.IsNullOrEmpty(description))
+            form.StyledToolTip.Hide(parent);
+
+            this.lastToolTipControl = null;
+            this.lastToolTipText = "";
+            this.lastToolTipPos = Point.Empty;
+        }
+
+        private void UpdateStyledToolTip(
+            GeistStudioWin form,
+            Control parent,
+            string desc
+        )
+        {
+            Point pos = parent.PointToClient(Cursor.Position);
+            pos.Offset(16, 24);
+
+            if (this.lastToolTipControl == parent &&
+                this.lastToolTipText == desc &&
+                Math.Abs(pos.X - this.lastToolTipPos.X) < 4 &&
+                Math.Abs(pos.Y - this.lastToolTipPos.Y) < 4)
                 return;
 
-            System.Drawing.Point clientPos = this.MainMenu.PointToClient(System.Windows.Forms.Cursor.Position);
-            this.StyledToolTip.Show(description, this.MainMenu, clientPos.X + 12, clientPos.Y + 24);
+            this.lastToolTipPos = pos;
+            this.lastToolTipControl = parent;
+            this.lastToolTipText = desc;
+
+            form.StyledToolTip.Hide(parent);
+            form.StyledToolTip.Show(desc, parent, pos);
+        }
+
+        private void ShowStyledToolTip(
+            GeistStudioWin form,
+            Control parent,
+            string desc
+        )
+        {
+            if (string.IsNullOrWhiteSpace(desc))
+                return;
+
+            Point pos = parent.PointToClient(Cursor.Position);
+            pos.Offset(16, 24);
+
+            this.lastToolTipPos = pos;
+            this.lastToolTipControl = parent;
+            this.lastToolTipText = desc;
+
+            form.StyledToolTip.Hide(parent);
+            form.StyledToolTip.Show(desc, parent, pos);
         }
 
         private void AddMenuItems(
@@ -429,7 +463,7 @@ namespace GeistStudio
                 MenuItem("Explorer", "Shows the project file explorer.", () => { }),
                 MenuItem("Search", "Opens the global search panel.", () => { }),
                 "-",
-                MenuItem("Terminal", "Opens the integrated terminal.", () => { }),
+                MenuItem("Terminal", "Opens the integrated terminal.", () => Util.OpenTerminal(this)),
                 MenuItem("Problems", "Shows detected errors and warnings.", () => { }),
                 MenuItem("Output", "Displays build and application output.", () => { }),
                 MenuItem("Debug Console", "Opens the debugging console.", () => { }),
@@ -511,6 +545,8 @@ namespace GeistStudio
                 MenuItem("Terminal", "Opens the integrated terminal.", () => Util.OpenTerminal(this)),
                 MenuItem("Extensions", "Manages installed extensions.", () => { }),
                 MenuItem("Format Document", "Formats the current document.", () => { }),
+                "-",
+                MenuItem("Settings", "Opens the Settings Menu.", () => Util.OpenSettings()),
                 MenuItem("Options", "Opens editor options.", () => { })
             );
             // 
@@ -520,9 +556,7 @@ namespace GeistStudio
                 this.WindowMenu,
                 MenuItem("Split Editor", "Splits the editor view.", () => { }),
                 MenuItem("Next Tab", "Moves to the next tab.", () => { }),
-                MenuItem("Previous Tab", "Moves to the previous tab.", () => { }),
-                "-",
-                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.OpenSettings())
+                MenuItem("Previous Tab", "Moves to the previous tab.", () => { })
             );
             // 
             // Help
@@ -533,8 +567,43 @@ namespace GeistStudio
                 MenuItem("Keyboard Shortcuts", "Shows available shortcuts.", () => { }),
                 "-",
                 MenuItem("Check for Updates", "Checks for new versions.", () => { }),
-                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => { })
+                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => openInformation())
             );
+        }
+
+        public static string LoadEmbeddedJson()
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+
+            using (Stream stream = assembly.GetManifestResourceStream("GeistStudio.GeistStudioData.json"))
+            using (StreamReader reader = new StreamReader(stream))
+            {
+
+                if (stream == null)
+                    throw new FileNotFoundException("Embedded Resource wurde nicht gefunden.");
+
+                return reader.ReadToEnd();
+            }
+        }
+
+        private void processJson() 
+        {
+            Dictionary<string, object> root = (Dictionary<string, object>)JsonParser.LoadEmbeddedJson("GeistStudio.GeistStudioData.json");
+            Dictionary<string, object> versions = (Dictionary<string, object>)root["AllVersions"];
+
+            VersionReader.PrintVersions(versions);
+
+            String result = "";
+            result += $"Name:           {(string)root["Name"]}\n";
+            result += $"Author:         {(string)root["Author"]}\n";
+            result += $"CurVersion:     {(string)root["CurVersion"]}";
+            MessageBox.Show(result);
+        }
+
+        private void openInformation()
+        {
+            Information info = new Information();
+            info.Open();
         }
 
         private void WelcomePanel_Paint(object sender, PaintEventArgs e)
@@ -999,118 +1068,6 @@ namespace GeistStudio
             }
         }
 
-        private void addBtnToTitleBar(Panel parent, String btn, Action func) 
-        {
-            Button customBtn = new Button();
-            customBtn.Text = btn;
-            customBtn.Width = 45;
-            customBtn.TabStop = false;
-            customBtn.Cursor = Cursors.Hand;
-            customBtn.Dock = DockStyle.Right;
-            customBtn.FlatStyle = FlatStyle.Flat;
-            customBtn.FlatAppearance.BorderSize = 0;
-            customBtn.Font = new Font("Segoe UI Symbol", 12);
-            customBtn.ForeColor = Color.FromArgb(210, 210, 230);
-
-            customBtn.Click += (s, e) => func();
-
-            parent.Controls.Add(customBtn);
-        }
-
-        private Button CreateWindowButton(string text, bool isClose = false)
-        {
-            Button btn = new Button();
-
-            btn.Text = text;
-            btn.Width = 45;
-            btn.Cursor = Cursors.Hand;
-            btn.Dock = DockStyle.Right;
-            btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderSize = 0;
-            btn.BackColor = normalButtonColor;
-            btn.Font = new Font("Segoe UI Symbol", 12);
-            btn.ForeColor = Color.FromArgb(210, 210, 230);
-
-            btn.MouseEnter += (s, e) => btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
-            btn.MouseLeave += (s, e) => btn.BackColor = normalButtonColor;
-
-            return btn;
-        }
-
-
-        private void CreateCustomTitleBar()
-        {
-            titleBar = new Panel();
-            titleBar.Dock = DockStyle.Top;
-            titleBar.Height = 35;
-            titleBar.BackColor = Color.FromArgb(26, 23, 55);
-
-            this.Controls.Add(titleBar);
-
-
-            Label title = new Label();
-            title.Text = "GeistStudio";
-            title.ForeColor = Color.FromArgb(230, 225, 245);
-            title.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            title.Location = new Point(15, 8);
-            title.AutoSize = true;
-
-            titleBar.Controls.Add(title);
-
-            minimizeButton = CreateWindowButton("─");
-            minimizeButton.Dock = DockStyle.Right;
-
-            maximizeButton = CreateWindowButton("□");
-            maximizeButton.Dock = DockStyle.Right;
-
-            closeButton = CreateWindowButton("×", true);
-            closeButton.Dock = DockStyle.Right;
-
-            minimizeButton.Click += (s, e) => this.WindowState = FormWindowState.Minimized;
-            maximizeButton.Click += (s, e) => {
-                this.WindowState =  
-                    this.WindowState == FormWindowState.Maximized 
-                    ? FormWindowState.Normal 
-                    : FormWindowState.Maximized; 
-            };
-            closeButton.Click += (s, e) => this.Close();
-
-            addBtnToTitleBar(
-                titleBar,
-                "▶",
-                () => Util.ExecuteCode(this)
-            );
-
-            addBtnToTitleBar(
-                titleBar,
-                "💻",
-                () => Util.OpenTerminal(this)
-            );
-
-            addBtnToTitleBar(
-                titleBar, 
-                "⛭", 
-                () => Util.OpenSettings()
-            );
-
-            titleBar.Controls.Add(minimizeButton);
-            titleBar.Controls.Add(maximizeButton);
-            titleBar.Controls.Add(closeButton);
-
-            titleBar.MouseDown += (s, e) =>
-            {
-                if (e.Button == MouseButtons.Left)
-                {
-                    ReleaseCapture();
-                    SendMessage(
-                        Handle,
-                        0xA1,
-                        0x2,
-                        0);
-                }
-            };
-        }
-
 
         #region Vom Windows Form-Designer generierter Code
 
@@ -1396,8 +1353,9 @@ namespace GeistStudio
             this.Name = "GeistStudioWin";
             this.Text = "GeistStudio";
             this.KeyPreview = true;
-            CreateCustomTitleBar();
-            this.FormBorderStyle = FormBorderStyle.None;
+
+            Util.CreateCustomTitleBar(this, "GeistStudio", false, true);
+
             this.DoubleBuffered = true;
             this.KeyDown += Form1_KeyDown;
             this.Navbar.ResumeLayout(false);

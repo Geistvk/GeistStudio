@@ -116,32 +116,40 @@ struct User {
 // Passwort-Eingabe unsichtbar
 // ==========================
 std::string getHiddenInput() {
-    std::string input;
+    std::string input; 
+#if defined(_WIN32)    
+    // Wenn stdin NICHT an eine echte Konsole gebunden ist (z.B. weil ein    
+    // // Elternprozess wie ein C#-Host den Input ueber eine Pipe umleitet),    
+    // // funktioniert _getch() nicht: es liest direkt von CONIN$, nicht vom    
+    // // umgeleiteten stdin-Handle, und blockiert dann fuer immer. In dem Fall    
+    // // muss auf std::getline zurueckgefallen werden.    
+    if (!_isatty(_fileno(stdin))) {        
+        std::getline(std::cin, input);        
+        return input;    
+    }     
 
-#if defined(_WIN32)
-    char ch;
-    while ((ch = _getch()) != '\r') { // Enter
-        if (ch == '\b') { // Backspace
-            if (!input.empty()) {
-                input.pop_back();
-                std::cout << "\b \b";
-            }
-        } else {
-            input.push_back(ch);
-            std::cout << '*'; // optional: Sternchen anzeigen
-        }
-    }
+    char ch;    
+    while ((ch = _getch()) != '\r') {       
+        if (ch == '\b') {
+            if (!input.empty()) {                
+                input.pop_back();                
+                std::cout << "\b \b";            
+            }        
+        } else {            
+            input.push_back(ch);            
+            std::cout << '*';      
+        }    
+    }    
     std::cout << std::endl;
-#else
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~ECHO;
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    std::getline(std::cin, input);
+#else    
+    struct termios oldt, newt;    
+    tcgetattr(STDIN_FILENO, &oldt);    
+    newt = oldt;    
+    newt.c_lflag &= ~ECHO;    
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);    
+    std::getline(std::cin, input);   
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-#endif
-
+#endif     
     return input;
 }
 

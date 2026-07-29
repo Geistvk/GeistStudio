@@ -2,9 +2,15 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security;
+using System.Security.Permissions;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -17,6 +23,59 @@ namespace GeistStudio
         {
             InitializeComponent();
             addComponents();
+        }
+    }
+
+    public static class EntryAssemblyInfo
+    {
+        private static string _executablePath;
+
+        public static string ExecutablePath
+        {
+            get
+            {
+                if (_executablePath == null)
+                {
+                    PermissionSet permissionSets = new PermissionSet(PermissionState.None);
+                    permissionSets.AddPermission(new FileIOPermission(PermissionState.Unrestricted));
+                    permissionSets.AddPermission(new SecurityPermission(SecurityPermissionFlag.UnmanagedCode));
+                    permissionSets.Assert();
+
+                    string uriString = null;
+                    var entryAssembly = Assembly.GetEntryAssembly();
+
+                    if (entryAssembly == null)
+                        uriString = Process.GetCurrentProcess().MainModule.FileName;
+                    else
+                        uriString = entryAssembly.CodeBase;
+
+                    PermissionSet.RevertAssert();
+
+                    if (string.IsNullOrWhiteSpace(uriString))
+                        throw new Exception("Can not Get EntryAssembly or Process MainModule FileName");
+                    else
+                    {
+                        var uri = new Uri(uriString);
+                        if (uri.IsFile)
+                            _executablePath = string.Concat(uri.LocalPath, Uri.UnescapeDataString(uri.Fragment));
+                        else
+                            _executablePath = uri.ToString();
+                    }
+                }
+
+                return _executablePath;
+            }
+        }
+    }
+
+    public static class FormUtils
+    {
+        public static void SetDefaultIcon()
+        {
+            var icon = Icon.ExtractAssociatedIcon(EntryAssemblyInfo.ExecutablePath);
+            typeof(Form)
+                .GetField("defaultIcon", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+                .SetValue(null, icon);
         }
     }
 
@@ -272,6 +331,251 @@ namespace GeistStudio
             {
                 HScroll?.Invoke(this, EventArgs.Empty);
             }
+        }
+    }
+
+
+
+
+    public class JsonParser
+    {
+        private readonly string json;
+        private int index;
+
+        public JsonParser(string json)
+        {
+            this.json = json;
+        }
+
+        public static object LoadEmbeddedJson(String name)
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+
+            using (Stream stream = assembly.GetManifestResourceStream(name))
+            using (StreamReader reader = new StreamReader(stream))
+            {
+
+                if (stream == null)
+                    throw new FileNotFoundException("Embedded Resource wurde nicht gefunden.");
+
+                return Parse(reader.ReadToEnd());
+            }
+        }
+
+        public static object Parse(string json)
+        {
+            return new JsonParser(json).ParseValue();
+        }
+
+        private object ParseValue()
+        {
+            SkipWhitespace();
+
+            if (index >= json.Length)
+                throw new Exception("Unexpected end of JSON.");
+
+            switch (json[index])
+            {
+                case '{':
+                    return ParseObject();
+
+                case '[':
+                    return ParseArray();
+
+                case '"':
+                    return ParseString();
+
+                case 't':
+                    Expect("true");
+                    return true;
+
+                case 'f':
+                    Expect("false");
+                    return false;
+
+                case 'n':
+                    Expect("null");
+                    return null;
+
+                default:
+                    return ParseNumber();
+            }
+        }
+
+        private Dictionary<string, object> ParseObject()
+        {
+            var obj = new Dictionary<string, object>();
+
+            index++;
+
+            SkipWhitespace();
+
+            if (json[index] == '}')
+            {
+                index++;
+                return obj;
+            }
+
+            while (true)
+            {
+                SkipWhitespace();
+
+                string key = ParseString();
+
+                SkipWhitespace();
+
+                if (json[index] != ':')
+                    throw new Exception("Expected ':'");
+
+                index++;
+
+                object value = ParseValue();
+
+                obj[key] = value;
+
+                SkipWhitespace();
+
+                if (json[index] == '}')
+                {
+                    index++;
+                    break;
+                }
+
+                if (json[index] != ',')
+                    throw new Exception("Expected ','");
+
+                index++;
+            }
+
+            return obj;
+        }
+
+        private List<object> ParseArray()
+        {
+            var list = new List<object>();
+
+            index++;
+
+            SkipWhitespace();
+
+            if (json[index] == ']')
+            {
+                index++;
+                return list;
+            }
+
+            while (true)
+            {
+                list.Add(ParseValue());
+
+                SkipWhitespace();
+
+                if (json[index] == ']')
+                {
+                    index++;
+                    break;
+                }
+
+                if (json[index] != ',')
+                    throw new Exception("Expected ','");
+
+                index++;
+            }
+
+            return list;
+        }
+
+        private string ParseString()
+        {
+            if (json[index] != '"')
+                throw new Exception("Expected string.");
+
+            index++;
+
+            var sb = new StringBuilder();
+
+            while (index < json.Length)
+            {
+                char c = json[index++];
+
+                if (c == '"')
+                    break;
+
+                if (c == '\\')
+                {
+                    c = json[index++];
+
+                    switch (c)
+                    {
+                        case '"': sb.Append('"'); break;
+                        case '\\': sb.Append('\\'); break;
+                        case '/': sb.Append('/'); break;
+                        case 'b': sb.Append('\b'); break;
+                        case 'f': sb.Append('\f'); break;
+                        case 'n': sb.Append('\n'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case 't': sb.Append('\t'); break;
+
+                        case 'u':
+                            sb.Append((char)Convert.ToInt32(json.Substring(index, 4), 16));
+                            index += 4;
+                            break;
+
+                        default:
+                            throw new Exception("Invalid escape sequence.");
+                    }
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private object ParseNumber()
+        {
+            int start = index;
+
+            while (index < json.Length)
+            {
+                char c = json[index];
+
+                if ("0123456789+-.eE".IndexOf(c) == -1)
+                    break;
+
+                index++;
+            }
+
+            string number = json.Substring(start, index - start);
+
+            if (number.Contains(".") || number.Contains("e") || number.Contains("E"))
+                return double.Parse(number, CultureInfo.InvariantCulture);
+
+            long l;
+
+            if (!long.TryParse(number, out l))
+                throw new Exception("Invalid number.");
+
+            if (l >= int.MinValue && l <= int.MaxValue)
+                return (int)l;
+
+            return l;
+        }
+
+        private void SkipWhitespace()
+        {
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+                index++;
+        }
+
+        private void Expect(string value)
+        {
+            if (json.Substring(index, value.Length) != value)
+                throw new Exception("Expected " + value);
+
+            index += value.Length;
         }
     }
 }

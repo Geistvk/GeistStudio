@@ -1,0 +1,83 @@
+{
+  "Name": "GeistStudio",
+  "Author": "Geistvk",
+  "CurVersion": "0.1.1",
+  "AllVersions": {
+    "Version 0.X.X": {
+      "Version 0.1.X": {
+        "Version 0.1.0": {
+          "Title": "0.1.0",
+          "Changes": [
+            "Initiales GeistStudio Projekt erstellt",
+            "Grundlegende WinForms Oberfläche hinzugefügt",
+            "Dark Theme Grundstruktur implementiert",
+            "Navbar und Sidebar erstellt"
+          ]
+        },
+        "Version 0.1.1": {
+          "Title": "0.1.1",
+          "Changes": [
+            "Datei-Editor hinzugefügt",
+            "Tab-System für mehrere Dateien implementiert",
+            "GeistScript Dateien unterstützt",
+            "Speichern und Öffnen von Dateien hinzugefügt"
+          ]
+        },
+        "Version 0.1.2": {
+          "Title": "0.1.2",
+          "Changes": [
+            "Syntax Highlighting vorbereitet",
+            "Verbesserte Editor-Darstellung",
+            "Dark Mode Farben überarbeitet",
+            "Fehler im Tab-Management behoben"
+          ]
+        }
+      },
+
+      "Version 0.2.X": {
+        "Version 0.2.0": {
+          "Title": "0.2.0",
+          "Changes": [
+            "Neues Settings Fenster hinzugefügt",
+            "Benutzerdefinierte Tooltips implementiert",
+            "Benachrichtigungssystem hinzugefügt",
+            "UI Komponenten verbessert"
+          ]
+        },
+
+        "Version 0.2.1": {
+          "Title": "0.2.1",
+          "Changes": [
+            "Custom TitleBar hinzugefügt",
+            "Fensteranimationen verbessert",
+            "Verbesserte Navigation zwischen Bereichen",
+            "Mehrere UI Fehler behoben"
+          ]
+        },
+
+        "Version 0.2.2": {
+          "Title": "0.2.2",
+          "Changes": [
+            "Versionsverwaltung hinzugefügt",
+            "GeistStudioData.json integriert",
+            "Eigener JSON Parser implementiert",
+            "Versionsanzeige vorbereitet"
+          ]
+        }
+      }
+    },
+
+    "Version 1.X.X": {
+      "Version 1.0.X": {
+        "Version 1.0.0": {
+          "Title": "1.0.0",
+          "Changes": [
+            "Erste stabile GeistStudio Version",
+            "Kompletter Code Editor verfügbar",
+            "Verbesserte Performance"
+          ]
+        }
+      }
+    }
+  }
+}

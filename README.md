@@ -67,6 +67,13 @@ dotnet build
 dotnet run --project GeistStudio.csproj
 ```
 
+Or the Programm can be build using `g++`:
+```bash
+git clone https://github.com/Geistvk/GeistStudio.git
+cd GeistStudio
+g++ GeistStudio.cpp -o GeistStudio.exe
+```
+
 ## Usage
 
 1. Launch GeistStudio.

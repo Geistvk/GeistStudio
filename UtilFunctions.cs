@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Dynamic;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.IO;
@@ -108,40 +109,41 @@ namespace GeistStudio
                 dialog.Text = "Save File";
                 dialog.Size = new Size(400, 200);
                 dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.BackColor = Color.FromArgb(42, 38, 78);
+                dialog.BackColor = Util.Config.Colors.Background.Dialog.Background;
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MaximizeBox = false;
                 dialog.MinimizeBox = false;
+                Util.CreateCustomTitleBar(dialog, "Save File As", true);
 
                 Label title = new Label();
                 title.Text = "Save this File as";
                 title.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-                title.ForeColor = Color.FromArgb(225, 220, 245);
-                title.Location = new Point(16, 10);
+                title.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
+                title.Location = new Point(16, 40);
                 title.AutoSize = true;
 
                 Label text = new Label();
                 text.Text = "What should be the file name? (without .gsScript)";
                 text.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-                text.ForeColor = Color.FromArgb(225, 220, 245);
-                text.Location = new Point(20, 60);
+                text.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
+                text.Location = new Point(20, 90);
                 text.AutoSize = true;
 
                 TextBox fileNameBox = new TextBox();
-                fileNameBox.Location = new Point(20, 90);
+                fileNameBox.Location = new Point(20, 120);
                 fileNameBox.Size = new Size(350, 25);
                 fileNameBox.Font = new Font("Segoe UI", 10F);
 
                 Button save = new Button();
                 save.Text = "Save";
-                save.Location = new Point(210, 130);
-                save.ForeColor = Color.FromArgb(225, 220, 245);
+                save.Location = new Point(210, 160);
+                save.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 save.DialogResult = DialogResult.OK;
 
                 Button cancel = new Button();
                 cancel.Text = "Cancel";
-                cancel.Location = new Point(300, 130);
-                cancel.ForeColor = Color.FromArgb(225, 220, 245);
+                cancel.Location = new Point(300, 160);
+                cancel.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 cancel.DialogResult = DialogResult.Cancel;
 
                 dialog.AcceptButton = save;
@@ -190,24 +192,24 @@ namespace GeistStudio
         */
         public static async void Notify(GeistStudioWin form, string type, string msg)
         {
-            Color backColor = Color.FromArgb(45, 45, 45);
+            Color backColor = Util.Config.Colors.Background.Notify.Standard;
 
             switch (type.ToLower())
             {
                 case "information":
-                    backColor = Color.FromArgb(0, 122, 204);
+                    backColor = Util.Config.Colors.Background.Notify.Information;
                     break;
 
                 case "warning":
-                    backColor = Color.FromArgb(255, 170, 0);
+                    backColor = Util.Config.Colors.Background.Notify.Warning;
                     break;
 
                 case "error":
-                    backColor = Color.FromArgb(220, 53, 69);
+                    backColor = Util.Config.Colors.Background.Notify.Error;
                     break;
 
                 case "success":
-                    backColor = Color.FromArgb(40, 167, 69);
+                    backColor = Util.Config.Colors.Background.Notify.Success;
                     break;
             }
 
@@ -219,7 +221,7 @@ namespace GeistStudio
             Label label = new Label();
             label.Dock = DockStyle.Fill;
             label.Text = msg;
-            label.ForeColor = Color.White;
+            label.ForeColor = Util.Config.Colors.Foreground.Text;
             label.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             label.TextAlign = ContentAlignment.MiddleLeft;
             label.Padding = new Padding(15, 0, 15, 0);
@@ -290,7 +292,7 @@ namespace GeistStudio
             customBtn.FlatStyle = FlatStyle.Flat;
             customBtn.FlatAppearance.BorderSize = 0;
             customBtn.Font = new Font("Segoe UI Symbol", 12);
-            customBtn.ForeColor = Color.FromArgb(210, 210, 230);
+            customBtn.ForeColor = Util.Config.Colors.Foreground.TitleBarButton;
 
             customBtn.MouseEnter += (s, e) => ShowStyledToolTip(form, parent, desc);
             customBtn.MouseMove += (s, e) => UpdateStyledToolTip(form, parent, desc);
@@ -352,8 +354,9 @@ namespace GeistStudio
 
         private static Button CreateWindowButton(string text, bool isClose = false)
         {
-            Color closeColor = Color.FromArgb(220, 50, 50);
-            Color normalButtonColor = Color.FromArgb(35, 32, 70);
+            Color closeColor = Util.Config.Colors.Background.TitleBarCloseButton;
+            Color normalButtonHover = Util.Config.Colors.Background.TitleBarButtonHover;
+            Color normalButtonColor = Util.Config.Colors.Background.TitleBarButton;
 
             Button btn = new Button();
 
@@ -365,9 +368,9 @@ namespace GeistStudio
             btn.FlatAppearance.BorderSize = 0;
             btn.BackColor = normalButtonColor;
             btn.Font = new Font("Segoe UI Symbol", 12);
-            btn.ForeColor = Color.FromArgb(210, 210, 230);
+            btn.ForeColor = Util.Config.Colors.Foreground.TitleBarButton;
 
-            btn.MouseEnter += (s, e) => btn.BackColor = !isClose ? Color.FromArgb(70, 65, 110) : closeColor;
+            btn.MouseEnter += (s, e) => btn.BackColor = !isClose ? normalButtonHover : closeColor;
             btn.MouseLeave += (s, e) => btn.BackColor = normalButtonColor;
 
             return btn;
@@ -388,11 +391,23 @@ namespace GeistStudio
 
             form.Controls.Add(titleBar);
 
+            PictureBox appIcon = new PictureBox();
+            appIcon.Size = new Size(25, 25);
+            appIcon.Location = new Point(10, (titleBar.Height - appIcon.Height) / 2);
+            appIcon.SizeMode = PictureBoxSizeMode.StretchImage;
+
+            if (form.Icon != null)
+            {
+                appIcon.Image = form.Icon.ToBitmap();
+            }
+
+            titleBar.Controls.Add(appIcon);
+
             Label title = new Label();
             title.Text = text;
-            title.ForeColor = Color.FromArgb(230, 225, 245);
+            title.ForeColor = Util.Config.Colors.Foreground.TitleBarText;
             title.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            title.Location = new Point(15, 8);
+            title.Location = new Point(appIcon.Right + 8, 8);
             title.AutoSize = true;
 
             titleBar.Controls.Add(title);
@@ -556,130 +571,112 @@ namespace GeistStudio
             terminal.Send(result);
         }
 
-        public struct BackColors {
-            public Color Sidebar;
-            public Color Navbar;
-            public Color Background;
-            public Color Titlebar;
-            public Color Terminal;
-            public Color FileList;
-            public Color Scrollbar;
-            public Color Thumb;
-            public Color WelcomeButton;
-
-            public BackColors(
-                Color sideBarCol,
-                Color navBarCol,
-                Color backGroundCol,
-                Color titleBarCol,
-                Color terminalCol,
-                Color fileListCol,
-                Color scrollBarCol,
-                Color thumbCol,
-                Color welcomeBtnCol
-            ) {
-                Sidebar = sideBarCol;
-                Navbar = navBarCol;
-                Background = backGroundCol;
-                Titlebar = titleBarCol;
-                Terminal = terminalCol;
-                FileList = fileListCol;
-                Scrollbar = scrollBarCol;
-                Thumb = thumbCol;
-                WelcomeButton = welcomeBtnCol;
-            }
-        }
-
-        public struct ForeColors {
-            public Color Terminal;
-            public Color MainMenu;
-            public Color Text;
-            public Color SubText;
-            public Color Accent;
-
-            public ForeColors(
-                Color terminalCol,
-                Color mainMenuCol,
-                Color textCol,
-                Color subTextCol, 
-                Color accentCol
-            ) {
-                Terminal = terminalCol;
-                MainMenu = mainMenuCol;
-                Text = textCol;
-                SubText = subTextCol;
-                Accent = accentCol;
-            }
-        }
-
-        public struct AllColors {
-            public BackColors Background;
-            public ForeColors Foreground;
-
-            public AllColors(
-                BackColors backGroundCols,
-                ForeColors foreGroundCols
-            ) { 
-                Background = backGroundCols;
-                Foreground = foreGroundCols;
-            }
-        }
-
-        public struct ConfigThis
+        public class AllColors
         {
-            public AllColors Colors;
+            public dynamic Background { get; set; }
+            public dynamic Foreground { get; set; }
 
-            public ConfigThis(
-                AllColors colorsCol
-            ) {
-                Colors = colorsCol;
+            public AllColors()
+            {
+                Background = new DynamicColorGroup();
+                Foreground = new DynamicColorGroup();
             }
         }
 
-        public static ConfigThis Config = loadColors();
-
-        public static ConfigThis loadColors()
+        public class ConfigThis
         {
+            public AllColors Colors { get; private set; }
+
+            public ConfigThis()
+            {
+                Colors = new AllColors();
+            }
+        }
+
+        public static ConfigThis Config = LoadColors();
+
+        public static ConfigThis LoadColors()
+        {
+            ConfigThis configThis = new ConfigThis();
+
             Dictionary<string, object> root = (Dictionary<string, object>)JsonParser.LoadEmbeddedJson("GeistStudio.GeistStudioData.json");
+
             Dictionary<string, object> config = (Dictionary<string, object>)root["Config"];
             Dictionary<string, object> colors = (Dictionary<string, object>)config["Colors"];
 
-            Color processColor(String parent, String Name) {
-                Dictionary<string, object> parentCol = (Dictionary<string, object>)colors[parent];
-                String color = (string)parentCol[Name];
-                String[] colArr = color.Trim().Split(',');
+            configThis.Colors.Background = LoadGroup((Dictionary<string, object>)colors["Background"]);
+            configThis.Colors.Foreground = LoadGroup((Dictionary<string, object>)colors["Foreground"]);
 
-                return Color.FromArgb(
-                    Int32.Parse(colArr[0]),
-                    Int32.Parse(colArr[1]),
-                    Int32.Parse(colArr[2])
-                );
+            return configThis;
+        }
+
+        private static DynamicColorGroup LoadGroup(Dictionary<string, object> data)
+        {
+            DynamicColorGroup group = new DynamicColorGroup();
+
+            foreach (KeyValuePair<string, object> entry in data)
+            {
+                if (entry.Value is string)
+                {
+                    string[] rgb = entry.Value.ToString().Split(',');
+
+                    group.AddColor(
+                        entry.Key,
+                        Color.FromArgb(
+                            int.Parse(rgb[0].Trim()),
+                            int.Parse(rgb[1].Trim()),
+                            int.Parse(rgb[2].Trim())
+                        )
+                    );
+                }
+                else
+                {
+                    group.AddGroup(
+                        entry.Key,
+                        LoadGroup((Dictionary<string, object>)entry.Value)
+                    );
+                }
             }
 
-            ConfigThis result = new ConfigThis(
-                new AllColors(
-                    new BackColors(
-                        processColor("Background", "Sidebar"),
-                        processColor("Background", "Navbar"),
-                        processColor("Background", "Background"),
-                        processColor("Background", "Titlebar"),
-                        processColor("Background", "Terminal"),
-                        processColor("Background", "FileList"),
-                        processColor("Background", "Scrollbar"),
-                        processColor("Background", "Thumb"),
-                        processColor("Background", "WelcomeButton")
-                    ),
-                    new ForeColors(
-                        processColor("Foreground", "Terminal"),
-                        processColor("Foreground", "MainMenu"),
-                        processColor("Foreground", "Text"),
-                        processColor("Foreground", "SubText"),
-                        processColor("Foreground", "Accent")
-                    )
-                )
-            );
+            return group;
+        }
+    }
 
-            return result;
+    public class DynamicColorGroup : DynamicObject
+    {
+        private readonly Dictionary<string, object> _values;
+
+        public DynamicColorGroup()
+        {
+            _values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public void AddColor(string name, Color color)
+        {
+            _values[name] = color;
+        }
+
+        public void AddGroup(string name, DynamicColorGroup group)
+        {
+            _values[name] = group;
+        }
+
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            return _values.TryGetValue(binder.Name, out result);
+        }
+
+        public object this[string name]
+        {
+            get
+            {
+                object value;
+
+                if (!_values.TryGetValue(name, out value))
+                    throw new Exception("Element \"" + name + "\" does not exist.");
+
+                return value;
+            }
         }
     }
 

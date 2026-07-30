@@ -67,7 +67,7 @@ namespace GeistStudio
             button.Text = text;
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = 0;
-            button.BackColor = Color.FromArgb(22, 20, 45);
+            button.BackColor = Util.Config.Colors.Background.SideBarButton;
             button.ForeColor = Util.Config.Colors.Foreground.Text;
             button.Font = new Font("Segoe UI", 10F);
             button.TextAlign = ContentAlignment.MiddleLeft;
@@ -75,8 +75,8 @@ namespace GeistStudio
             button.Cursor = Cursors.Hand;
             button.Location = new Point(10, y);
 
-            button.MouseEnter += (s, e) => button.BackColor = Color.FromArgb(40, 36, 78);
-            button.MouseLeave += (s, e) => button.BackColor = Color.FromArgb(22, 20, 45);
+            button.MouseEnter += (s, e) => button.BackColor = Util.Config.Colors.Background.SideBarButtonHover;
+            button.MouseLeave += (s, e) => button.BackColor = Util.Config.Colors.Background.SideBarButton;
             button.Click += (s, e) => ShowPage(text);
 
             Sidebar.Controls.Add(button);
@@ -103,7 +103,7 @@ namespace GeistStudio
 
             card.Size = new Size(520, 85);
             card.Location = new Point(40, y);
-            card.BackColor = Color.FromArgb(37, 34, 72);
+            card.BackColor = Util.Config.Colors.Background.SettingsCard;
 
             Label title = new Label();
             title.Text = setting.Name;
@@ -125,7 +125,7 @@ namespace GeistStudio
             action.Location = new Point(400, 26);
             action.FlatStyle = FlatStyle.Flat;
             action.FlatAppearance.BorderSize = 0;
-            action.BackColor = Util.Config.Colors.Background.Thumb;
+            action.BackColor = Util.Config.Colors.Background.Button;
             action.ForeColor = Util.Config.Colors.Foreground.Text;
             action.Cursor = Cursors.Hand;
             action.Font = new Font("Segoe UI", 9F);
@@ -133,18 +133,18 @@ namespace GeistStudio
             if (setting.Type == "Reset")
             {
                 action.Text = setting.Type;
-                action.BackColor = Color.FromArgb(220, 50, 50);
+                action.BackColor = Util.Config.Colors.Background.Reset;
             }
 
             if (setting.Type != "Reset")
             {
-                action.MouseEnter += (s, e) => action.BackColor = Color.FromArgb(145, 80, 255);
-                action.MouseLeave += (s, e) => action.BackColor = Color.FromArgb(124, 58, 237);
+                action.MouseEnter += (s, e) => action.BackColor = Util.Config.Colors.Background.ButtonHover;
+                action.MouseLeave += (s, e) => action.BackColor = Util.Config.Colors.Background.Button;
             }
             else
             {
-                action.MouseEnter += (s, e) => action.BackColor = Color.FromArgb(255, 90, 90);
-                action.MouseLeave += (s, e) => action.BackColor = Color.FromArgb(220, 50, 50);
+                action.MouseEnter += (s, e) => action.BackColor = Util.Config.Colors.Background.ResetHover;
+                action.MouseLeave += (s, e) => action.BackColor = Util.Config.Colors.Background.Reset;
             }
 
             card.Controls.Add(title);

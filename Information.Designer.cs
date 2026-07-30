@@ -110,13 +110,13 @@ namespace GeistStudio
                 cardWidth,
                 cardHeight);
 
-            Color back = Color.FromArgb(38, 36, 68);
-            Color border = Color.FromArgb(55, 52, 90);
+            Color back = Util.Config.Colors.Background.Versions.NodeBackground;
+            Color border = Util.Config.Colors.Background.Versions.NodeBorder;
 
             if ((e.State & TreeNodeStates.Selected) != 0)
             {
-                back = Color.FromArgb(124, 58, 237);
-                border = Color.FromArgb(150, 90, 255);
+                back = Util.Config.Colors.Background.Versions.NodeBackgroundSelected;
+                border = Util.Config.Colors.Background.Versions.NodeBorderSelected;
             }
 
             using (SolidBrush b = new SolidBrush(back))
@@ -149,7 +149,7 @@ namespace GeistStudio
                     };
                 }
 
-                using (SolidBrush brush = new SolidBrush(Color.FromArgb(180, 180, 200)))
+                using (SolidBrush brush = new SolidBrush(Util.Config.Colors.Background.Versions.NodeArrow))
                 {
                     g.FillPolygon(brush, points);
                 }
@@ -163,17 +163,18 @@ namespace GeistStudio
             using (Font iconFont = new Font("Segoe UI Emoji", 10))
             using (Font textFont = new Font("Segoe UI Semibold", 10))
             {
+                SolidBrush brush = new SolidBrush(Util.Config.Colors.Foreground.Text);
                 g.DrawString(
                     icon,
                     iconFont,
-                    Brushes.White,
+                    brush,
                     card.Left + 10,
                     card.Top + 5);
 
                 g.DrawString(
                     e.Node.Text,
                     textFont,
-                    Brushes.White,
+                    brush,
                     card.Left + 34,
                     card.Top + 5);
             }
@@ -217,7 +218,7 @@ namespace GeistStudio
             //
             // Sidebar
             //
-            this.Sidebar.BackColor = System.Drawing.Color.FromArgb(22, 20, 45);
+            this.Sidebar.BackColor = Util.Config.Colors.Background.Sidebar;
             this.Sidebar.Dock = System.Windows.Forms.DockStyle.Left;
             this.Sidebar.Location = new System.Drawing.Point(0, 0);
             this.Sidebar.Name = "Sidebar";
@@ -226,7 +227,7 @@ namespace GeistStudio
             //
             // MainContent
             //
-            this.MainContent.BackColor = System.Drawing.Color.FromArgb(30, 27, 58);
+            this.MainContent.BackColor = Util.Config.Colors.Background.Background;
             this.MainContent.Dock = System.Windows.Forms.DockStyle.Fill;
             this.MainContent.Location = new System.Drawing.Point(220, 0);
             this.MainContent.Name = "MainContent";
@@ -235,7 +236,7 @@ namespace GeistStudio
             this.MainContent.TabIndex = 1;
 
             this.components = new System.ComponentModel.Container();
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(27)))), ((int)(((byte)(58)))));
+            this.BackColor = Util.Config.Colors.Background.Background;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Controls.Add(this.MainContent);
@@ -257,8 +258,8 @@ namespace GeistStudio
             VersionTree.Font = new Font("Segoe UI", 10);
             VersionTree.AfterSelect += VersionTree_AfterSelect;
             VersionTree.DrawMode = TreeViewDrawMode.OwnerDrawAll;
-            VersionTree.BackColor = Color.FromArgb(22, 20, 45);
-            VersionTree.ForeColor = Color.White;
+            VersionTree.BackColor = Util.Config.Colors.Background.Versions.VersionTree;
+            VersionTree.ForeColor = Util.Config.Colors.Foreground.Text;
             VersionTree.ItemHeight = 36;
             VersionTree.Indent = 24;
             VersionTree.Scrollable = true;
@@ -276,7 +277,7 @@ namespace GeistStudio
             Panel detailPanel = new Panel();
             detailPanel.Dock = DockStyle.Fill;
             detailPanel.Padding = new Padding(25);
-            detailPanel.BackColor = Color.FromArgb(30, 27, 58);
+            detailPanel.BackColor = Util.Config.Colors.Background.Background;
             //
             // Versionsname
             //
@@ -284,7 +285,7 @@ namespace GeistStudio
             SelectedVersionName.Dock = DockStyle.Top;
             SelectedVersionName.Height = 35;
             SelectedVersionName.Font = new Font("Segoe UI", 12, FontStyle.Regular);
-            SelectedVersionName.ForeColor = Color.FromArgb(160, 160, 180);
+            SelectedVersionName.ForeColor = Util.Config.Colors.Foreground.Versions.Selected;
             SelectedVersionName.Text = "Keine Version ausgewählt";
             //
             // Title
@@ -293,7 +294,7 @@ namespace GeistStudio
             SelectedVersionTitle.Dock = DockStyle.Top;
             SelectedVersionTitle.Height = 60;
             SelectedVersionTitle.Font = new Font("Segoe UI", 22, FontStyle.Bold);
-            SelectedVersionTitle.ForeColor = Color.White;
+            SelectedVersionTitle.ForeColor = Util.Config.Colors.Foreground.Text;
             SelectedVersionTitle.Text = "";
             //
             // Changes Bereich

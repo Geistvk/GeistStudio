@@ -92,14 +92,81 @@
         "FileList": "38, 35, 72",
         "Scrollbar": "24, 22, 50",
         "Thumb": "124, 58, 237",
-        "WelcomeButton": "124, 58, 237"
+        "Button": "124, 58, 237",
+        "DialogButton": "35, 32, 70",
+        "ButtonHover": "145, 80, 255",
+        "SettingsCard": "37, 34, 72",
+        "Reset": "220, 50, 50",
+        "ResetHover": "255, 90, 90",
+        "TitleBarButton": "35, 32, 70",
+        "TitleBarButtonHover": "70, 65, 110",
+        "TitleBarCloseButton": "220, 50, 50",
+        "SideBarButton": "22, 20, 45",
+        "SideBarButtonHover": "40, 36, 78",
+        "TabControl": {
+          "Background": "38, 35, 72",
+          "BackgroundHover": "60, 45, 110",
+          "BackgroundSelected": "124, 58, 237",
+          "BackgroundBorder": "45, 40, 80",
+          "Close": "140, 140, 140",
+          "CloseHover": "220, 50, 50",
+          "Selected": "55, 50, 95",
+          "NotSelected": "26, 23, 55",
+          "ItemPressed": "124, 58, 237",
+          "ItemNotPressed": "60, 45, 110"
+        },
+        "Notify": {
+          "Standard": "45, 45, 45",
+          "Information": "0, 122, 204",
+          "Warning": "255, 170, 0",
+          "Error": "220, 53, 69",
+          "Success": "40, 167, 69"
+        },
+        "Dialog": {
+          "Background": "42, 38, 78",
+          "TextBox": "55, 50, 95"
+        },
+        "ToolTip": {
+          "Background": "42, 38, 72"
+        },
+        "Editor": {
+          "Background": "30, 27, 58",
+          "LineNumbers": "24, 21, 48"
+        },
+        "Versions": {
+          "VersionTree": "22, 20, 45",
+          "NodeArrow": "180, 180, 200",
+          "NodeBackground": "38, 36, 68",
+          "NodeBackgroundSelected": "124, 58, 237",
+          "NodeBorder": "55, 52, 90",
+          "NodeBorderSelected": "150, 90, 255",
+          "ChangeCard": "40, 36, 75",
+          "ChangeCardHover": "55, 50, 100",
+          "ChangeCardBorder": "80, 70, 130"
+        }
       },
       "Foreground": {
         "MainMenu": "225, 220, 245",
         "Terminal": "180, 220, 255",
         "Text": "255, 255, 255",
+        "TextNotSelected": "160, 155, 190",
+        "TitleBarText": "230, 225, 245",
+        "TitleBarButton": "210, 210, 230",
         "SubText": "160, 160, 180",
-        "Accent": "140, 110, 255"
+        "Accent": "140, 110, 255",
+        "Dialog": {
+          "Text": "225, 220, 245"
+        },
+        "ToolTip": {
+          "Border": "124, 58, 237",
+          "Text": "225, 220, 245"
+        },
+        "Editor": {
+          "LineNumbers": "130, 130, 160"
+        },
+        "Versions": {
+          "Selected": "160, 160, 180"
+        }
       }
     }
   }

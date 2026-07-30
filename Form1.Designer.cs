@@ -183,7 +183,7 @@ namespace GeistStudio
                     path.CloseFigure();
 
                     using (SolidBrush background = new SolidBrush(
-                        Color.FromArgb(42, 38, 72)))
+                        Util.Config.Colors.Background.ToolTip.Background))
                     {
                         e.Graphics.FillPath(
                             background,
@@ -191,7 +191,7 @@ namespace GeistStudio
                     }
 
                     using (Pen border = new Pen(
-                        Color.FromArgb(124, 58, 237),
+                        Util.Config.Colors.Foreground.ToolTip.Border,
                         1))
                     {
                         border.Alignment =
@@ -215,7 +215,7 @@ namespace GeistStudio
                         7,
                         e.Bounds.Width - 24,
                         e.Bounds.Height - 14),
-                    Color.FromArgb(225, 220, 245),
+                    Util.Config.Colors.Foreground.ToolTip.Text,
                     TextFormatFlags.Left
                     | TextFormatFlags.VerticalCenter
                     | TextFormatFlags.WordBreak);
@@ -237,9 +237,9 @@ namespace GeistStudio
                 "Segoe UI",
                 9F);
 
-            Color backgroundColor = Color.FromArgb(42, 38, 72);
-            Color borderColor = Color.FromArgb(124, 58, 237);
-            Color textColor = Color.FromArgb(225, 220, 245);
+            Color backgroundColor = Util.Config.Colors.Background.ToolTip.Background;
+            Color borderColor = Util.Config.Colors.Foreground.ToolTip.Border;
+            Color textColor = Util.Config.Colors.Foreground.ToolTip.Text;
             
             this.StyledToolTip.Popup += (s, e) =>
             {
@@ -630,33 +630,33 @@ namespace GeistStudio
             using (Form dialog = new Form())
             {
                 dialog.Text = "New File";
+                dialog.Size = new Size(400, 200);
                 dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.BackColor = Util.Config.Colors.Background.Dialog.Background;
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MinimizeBox = false;
                 dialog.MaximizeBox = false;
-                dialog.ShowInTaskbar = false;
-                dialog.ClientSize = new Size(400, 180);
-                dialog.BackColor = Color.FromArgb(42, 38, 78);
-                dialog.ForeColor = Color.FromArgb(225, 220, 245);
+                dialog.MinimizeBox = false;
+                dialog.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
+                Util.CreateCustomTitleBar(dialog, "Create New File", true);
 
                 Label title = new Label();
                 title.Text = "Create a new file";
                 title.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-                title.Location = new Point(16, 10);
+                title.Location = new Point(16, 40);
                 title.AutoSize = true;
                 title.ForeColor = dialog.ForeColor;
 
                 Label label = new Label();
                 label.Text = "File name (without .gsScript)";
                 label.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-                label.Location = new Point(20, 50);
+                label.Location = new Point(20, 90);
                 label.AutoSize = true;
                 label.ForeColor = dialog.ForeColor;
 
                 TextBox textBox = new TextBox();
-                textBox.Location = new Point(20, 80);
+                textBox.Location = new Point(20, 120);
                 textBox.Size = new Size(360, 25);
-                textBox.BackColor = Color.FromArgb(55, 50, 95);
+                textBox.BackColor = Util.Config.Colors.Background.Dialog.TextBox;
                 textBox.ForeColor = dialog.ForeColor;
                 textBox.BorderStyle = BorderStyle.FixedSingle;
                 textBox.Text = "Untitled";
@@ -664,13 +664,13 @@ namespace GeistStudio
 
                 Button create = new Button();
                 create.Text = "Create";
-                create.Location = new Point(210, 130);
+                create.Location = new Point(210, 160);
                 create.Size = new Size(80, 30);
                 create.DialogResult = DialogResult.OK;
 
                 Button cancel = new Button();
                 cancel.Text = "Cancel";
-                cancel.Location = new Point(300, 130);
+                cancel.Location = new Point(300, 160);
                 cancel.Size = new Size(80, 30);
                 cancel.DialogResult = DialogResult.Cancel;
 
@@ -717,19 +717,19 @@ namespace GeistStudio
 
             Panel container = new Panel();
             container.Dock = DockStyle.Fill;
-            container.BackColor = Color.FromArgb(30, 27, 58);
+            container.BackColor = Util.Config.Colors.Background.Editor.Background;
 
             Panel linePanel = new Panel();
             linePanel.Dock = DockStyle.Left;
             linePanel.Width = 50;
-            linePanel.BackColor = Color.FromArgb(24, 21, 48);
+            linePanel.BackColor = Util.Config.Colors.Background.Editor.LineNumbers;
 
             Label lineNumbers = new Label();
             lineNumbers.AutoSize = false;
             lineNumbers.Location = new Point(0, 0);
             lineNumbers.Width = linePanel.Width;
             lineNumbers.Font = new Font("Consolas", 11F);
-            lineNumbers.ForeColor = Color.FromArgb(130, 130, 160);
+            lineNumbers.ForeColor = Util.Config.Colors.Foreground.Editor.LineNumbers;
             lineNumbers.TextAlign = ContentAlignment.TopRight;
             lineNumbers.Padding = new Padding(0, 2, 6, 0);
 
@@ -741,8 +741,8 @@ namespace GeistStudio
             editor.Dock = DockStyle.Fill;
             editor.Text = content;
             editor.Font = new Font("Consolas", 11F);
-            editor.BackColor = Color.FromArgb(30, 27, 58);
-            editor.ForeColor = Color.White;
+            editor.BackColor = Util.Config.Colors.Background.Editor.Background;
+            editor.ForeColor = Util.Config.Colors.Foreground.Text;
             editor.BorderStyle = BorderStyle.None;
             editor.DetectUrls = false;
 
@@ -853,26 +853,26 @@ namespace GeistStudio
                 dialog.Text = "Save and Close File";
                 dialog.Size = new Size(400, 180);
                 dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.BackColor = Color.FromArgb(42, 38, 78);
+                dialog.BackColor = Util.Config.Colors.Background.Dialog.Background;
 
                 Label title = new Label();
                 title.Text = "Close File";
                 title.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-                title.ForeColor = Color.FromArgb(225, 220, 245);
+                title.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 title.Location = new Point(16, 10);
                 title.AutoSize = true;
 
                 Label text = new Label();
                 text.Text = "Do you want to save this file before closing?";
                 text.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-                text.ForeColor = Color.FromArgb(225, 220, 245);
+                text.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 text.Location = new Point(20, 60);
                 text.AutoSize = true;
 
                 Button yes = new Button();
                 yes.Text = "Save | Close";
                 yes.Location = new Point(80, 100);
-                yes.ForeColor = Color.FromArgb(225, 220, 245);
+                yes.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 yes.DialogResult = DialogResult.Yes;
 
                 if (!closeFile)
@@ -888,13 +888,13 @@ namespace GeistStudio
                 no.Text = "Don't Save | Close";
                 no.Location = new Point(170, 100);
                 no.Size = new Size(110, 22);
-                no.ForeColor = Color.FromArgb(225, 220, 245);
+                no.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 no.DialogResult = DialogResult.No;
 
                 Button cancel = new Button();
                 cancel.Text = "Cancel";
                 cancel.Location = new Point(300, 100);
-                cancel.ForeColor = Color.FromArgb(225, 220, 245);
+                cancel.ForeColor = Util.Config.Colors.Foreground.Dialog.Text;
                 cancel.DialogResult = DialogResult.Cancel;
 
                 dialog.Controls.Add(title);
@@ -958,22 +958,6 @@ namespace GeistStudio
         private void FileList_SelectedIndexChanged(object sender, EventArgs e)
         {
             this.FileList.Invalidate();
-        }
-
-        private void Navbar_Paint(object sender, PaintEventArgs e)
-        {
-            using (var pen = new Pen(Color.FromArgb(45, 40, 80)))
-            {
-                e.Graphics.DrawLine(pen, 0, this.Navbar.Height - 1, this.Navbar.Width, this.Navbar.Height - 1);
-            }
-        }
-
-        private void Sidebar_Paint(object sender, PaintEventArgs e)
-        {
-            using (var pen = new Pen(Color.FromArgb(45, 40, 80)))
-            {
-                e.Graphics.DrawLine(pen, this.Sidebar.Width - 1, 0, this.Sidebar.Width - 1, this.Sidebar.Height);
-            }
         }
 
         struct Attributes
@@ -1265,7 +1249,6 @@ namespace GeistStudio
             this.home.TabIndex = 0;
             this.home.Text = "Home";
             this.home.UseVisualStyleBackColor = false;
-            this.home.Paint += new System.Windows.Forms.PaintEventHandler(this.Sidebar_Paint);
             this.home.BorderStyle = BorderStyle.None;
             // 
             // WelcomePanel
@@ -1284,9 +1267,9 @@ namespace GeistStudio
             // 
             // WelcomeOpenButton
             // 
-            this.WelcomeOpenButton.BackColor = Util.Config.Colors.Background.WelcomeButton;
+            this.WelcomeOpenButton.BackColor = Util.Config.Colors.Background.Button;
             this.WelcomeOpenButton.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.WelcomeOpenButton.FlatAppearance.BorderColor = Util.Config.Colors.Background.WelcomeButton;
+            this.WelcomeOpenButton.FlatAppearance.BorderColor = Util.Config.Colors.Background.Button;
             this.WelcomeOpenButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.WelcomeOpenButton.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.WelcomeOpenButton.ForeColor = Util.Config.Colors.Foreground.Text;
@@ -1300,11 +1283,11 @@ namespace GeistStudio
             // 
             // WelcomeNewButton
             // 
-            this.WelcomeNewButton.BackColor = Util.Config.Colors.Background.WelcomeButton;
+            this.WelcomeNewButton.BackColor = Util.Config.Colors.Background.Button;
             this.WelcomeNewButton.Cursor = System.Windows.Forms.Cursors.Hand;
             this.WelcomeNewButton.FlatAppearance.BorderSize = 0;
             this.WelcomeNewButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.WelcomeNewButton.FlatAppearance.BorderColor = Util.Config.Colors.Background.WelcomeButton;
+            this.WelcomeNewButton.FlatAppearance.BorderColor = Util.Config.Colors.Background.Button;
             this.WelcomeNewButton.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.WelcomeNewButton.ForeColor = Util.Config.Colors.Foreground.Text;
             this.WelcomeNewButton.Location = new System.Drawing.Point(84, 270);

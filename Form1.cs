@@ -14,6 +14,7 @@ using System.Security.Permissions;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace GeistStudio
 {
@@ -82,9 +83,9 @@ namespace GeistStudio
     public class GeistStudioColorTable : ProfessionalColorTable
     {
         private static readonly Color Background = Util.Config.Colors.Background.Background;
-        private static readonly Color HoverBg = Color.FromArgb(60, 45, 110);
-        private static readonly Color SelectedBg = Color.FromArgb(124, 58, 237);
-        private static readonly Color BorderColor = Color.FromArgb(45, 40, 80);
+        private static readonly Color HoverBg = Util.Config.Colors.Background.TabControl.BackgroundHover;
+        private static readonly Color SelectedBg = Util.Config.Colors.Background.TabControl.BackgroundSelected;
+        private static readonly Color BorderColor = Util.Config.Colors.Background.TabControl.BackgroundBorder;
 
         public override Color MenuStripGradientBegin => Background;
         public override Color MenuStripGradientEnd => Background;
@@ -122,8 +123,8 @@ namespace GeistStudio
             if (item.Selected || item.Pressed)
             {
                 Color fill = item.Pressed
-                    ? Color.FromArgb(124, 58, 237)
-                    : Color.FromArgb(60, 45, 110);
+                    ? Util.Config.Colors.Background.TabControl.ItemPressed
+                    : Util.Config.Colors.Background.TabControl.ItemNotPressed;
 
                 using (var brush = new SolidBrush(fill))
                 {
@@ -139,7 +140,7 @@ namespace GeistStudio
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
-            e.TextColor = Color.FromArgb(225, 220, 245);
+            e.TextColor = Util.Config.Colors.Foreground.MainMenu;
             base.OnRenderItemText(e);
         }
     }
@@ -155,9 +156,9 @@ namespace GeistStudio
 
     public class DarkTabControl : TabControl
     {
-        public Color BackgroundColorDark { get; set; } = Color.FromArgb(38, 35, 72);
-        private Color closeNormalColor = Color.FromArgb(140, 140, 140);
-        private Color closeHoverColor = Color.FromArgb(220, 50, 50);
+        public Color BackgroundColorDark { get; set; } = Util.Config.Colors.Background.TabControl.Background;
+        private Color closeNormalColor = Util.Config.Colors.Background.TabControl.Close;
+        private Color closeHoverColor = Util.Config.Colors.Background.TabControl.CloseHover;
         public Timer closeHoverTimer;
         public float closeHoverProgress = 0f;
         public bool closeHovered = false;
@@ -205,8 +206,8 @@ namespace GeistStudio
 
                 using (SolidBrush brush = new SolidBrush(
                     selected
-                        ? Color.FromArgb(55, 50, 95)
-                        : Color.FromArgb(26, 23, 55)))
+                        ? Util.Config.Colors.Background.TabControl.Selected
+                        : Util.Config.Colors.Background.TabControl.NotSelected))
                 {
                     e.Graphics.FillRectangle(
                         brush,
@@ -228,8 +229,8 @@ namespace GeistStudio
 
                 using (Brush text = new SolidBrush(
                     selected
-                    ? Color.White
-                    : Color.FromArgb(160, 155, 190)))
+                    ? Util.Config.Colors.Foreground.Text
+                    : Util.Config.Colors.Foreground.TextNotSelected))
                 {
                     e.Graphics.DrawString(
                         TabPages[i].Text,

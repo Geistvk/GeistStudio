@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Mail;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;

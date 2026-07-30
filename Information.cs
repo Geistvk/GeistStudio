@@ -97,7 +97,7 @@ namespace GeistStudio
                     path.CloseFigure();
 
                     using (Pen pen =
-                        new Pen(Color.FromArgb(80, 70, 130), 1))
+                        new Pen(Util.Config.Colors.Background.Versions.ChangeCardBorder, 1))
                     {
                         e.Graphics.DrawPath(pen, path);
                     }
@@ -115,14 +115,14 @@ namespace GeistStudio
             );
 
             card.Width = width;
-            card.BackColor = Color.FromArgb(40, 36, 75);
+            card.BackColor = Util.Config.Colors.Background.Versions.ChangeCard;
             card.Margin = new Padding(5, 5, 5, 8);
             card.Padding = new Padding(10);
             card.AutoSize = true;
 
             Label label = new Label();
             label.Text = "✓  " + text;
-            label.ForeColor = Color.White;
+            label.ForeColor = Util.Config.Colors.Foreground.Text;
             label.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
             label.AutoSize = true;
             label.MaximumSize = new Size(width - 35, 0);
@@ -148,10 +148,10 @@ namespace GeistStudio
             card.Controls.Add(label);
             StyleChangeCard(card);
 
-            label.MouseEnter += (s, e) => card.BackColor = Color.FromArgb(55, 50, 100);
-            label.MouseLeave += (s, e) => card.BackColor = Color.FromArgb(40, 36, 75);
-            card.MouseEnter += (s, e) => card.BackColor = Color.FromArgb(55, 50, 100);
-            card.MouseLeave += (s, e) => card.BackColor = Color.FromArgb(40, 36, 75);
+            label.MouseEnter += (s, e) => card.BackColor = Util.Config.Colors.Background.Versions.ChangeCardHover;
+            label.MouseLeave += (s, e) => card.BackColor = Util.Config.Colors.Background.Versions.ChangeCard;
+            card.MouseEnter += (s, e) => card.BackColor = Util.Config.Colors.Background.Versions.ChangeCardHover;
+            card.MouseLeave += (s, e) => card.BackColor = Util.Config.Colors.Background.Versions.ChangeCard;
 
             return card;
         }

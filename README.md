@@ -4,7 +4,7 @@ A simple **GeistScript Code Editor for Windows**.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Language](https://img.shields.io/badge/language-C%23-239120?logo=c-sharp&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-yellow.svg)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
 ## About

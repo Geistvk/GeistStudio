@@ -1,4 +1,21 @@
-﻿using System;
+﻿/*
+ * Copyright (C) 2026 Geistvk
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -67,7 +84,7 @@ namespace GeistStudio
             button.Text = text;
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = 0;
-            button.BackColor = Util.Config.Colors.Background.SideBarButton;
+            button.BackColor = Util.Config.Colors.Background.SideBar;
             button.ForeColor = Util.Config.Colors.Foreground.Text;
             button.Font = new Font("Segoe UI", 10F);
             button.TextAlign = ContentAlignment.MiddleLeft;
@@ -76,7 +93,7 @@ namespace GeistStudio
             button.Location = new Point(10, y);
 
             button.MouseEnter += (s, e) => button.BackColor = Util.Config.Colors.Background.SideBarButtonHover;
-            button.MouseLeave += (s, e) => button.BackColor = Util.Config.Colors.Background.SideBarButton;
+            button.MouseLeave += (s, e) => button.BackColor = Util.Config.Colors.Background.SideBar;
             button.Click += (s, e) => ShowPage(text);
 
             Sidebar.Controls.Add(button);

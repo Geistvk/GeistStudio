@@ -35,6 +35,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
+using System.Runtime.Caching;
 
 namespace GeistStudio
 {
@@ -502,6 +503,7 @@ namespace GeistStudio
 
         public static Settings set;
         public static Information info;
+        public static About about;
         public static Terminal terminal;
         public static CppProcess cpp = new CppProcess();
 
@@ -521,6 +523,15 @@ namespace GeistStudio
             else
                 info.BringToFront();
             info.Open();
+        }
+
+        public static void openAbout()
+        {
+            if (about == null || about.IsDisposed)
+                about = new About();
+            else
+                about.BringToFront();
+            about.Open();
         }
 
         public static string RequestHiddenInput(string prompt)
@@ -662,6 +673,53 @@ namespace GeistStudio
             }
 
             return group;
+        }
+
+        public static void cacheData(bool Data = true)
+        {
+            // Create a MemoryCache instance
+            var cache = MemoryCache.Default;
+
+            // Define cache key and data
+            string cacheKey = "MyCachedData";
+            string cachedData = Data ? "True" : "False";
+
+            // Add data to the cache with an expiration time of 5 minutes
+            CacheItemPolicy cachePolicy = new CacheItemPolicy
+            {
+                AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(5)
+            };
+
+            cache.Add(cacheKey, cachedData, cachePolicy);
+        }
+
+        public static void loadCacheData()
+        {
+            // Create a MemoryCache instance
+            var cache = MemoryCache.Default;
+
+            // Define cache key and data
+            string cacheKey = "MyCachedData";
+
+            // Add data to the cache with an expiration time of 5 minutes
+            CacheItemPolicy cachePolicy = new CacheItemPolicy
+            {
+                AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(5)
+            };
+
+            // Retrieve data from the cache
+            string retrievedData = cache.Get(cacheKey) as string;
+
+            if (retrievedData != null)
+            {
+                bool storedData = retrievedData == "True";
+
+                MessageBox.Show("Data retrieved from cache: " + (storedData ? "Yes" : "No"));
+            }
+            else
+            {
+                MessageBox.Show("Data not found in cache.");
+            }
         }
     }
 

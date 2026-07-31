@@ -587,7 +587,10 @@ namespace GeistStudio
                 MenuItem("Check for Updates", "Checks for new versions.", () => { }),
                 MenuItem("Show Versions", "Shows every Version with it's changes.", () => Util.openInformation()),
                 "-",
-                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => { })
+                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => Util.openAbout()),
+                "-",
+                MenuItem("Cache Store", "Just a Debug Function for the Memory Caching.", () => Util.cacheData()),
+                MenuItem("Cache Load", "Just a Debug Function for the Memory Caching.", () => Util.loadCacheData())
             );
         }
 

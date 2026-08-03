@@ -16,19 +16,29 @@
  */
 
 using GeistStudio;
+using GeistStudio.Properties;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
+using System.Net;
 using System.Reflection;
+using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Remoting.Messaging;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static GeistStudio.Util;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Windows.Forms.AxHost;
 
 namespace GeistStudio
 {
@@ -424,44 +434,44 @@ namespace GeistStudio
             // 
             AddMenuItems(
                 this.FileMenu,
-                MenuItem("New", "Creates a new empty workspace.", () => { }),
-                MenuItem("New File", "Creates a new source file.", () => WelcomeNewButton_Click(null, null)),
-                MenuItem("New Project", "Creates a new GeistStudio project.", () => { }),
+                MenuItem("New", "Creates a new empty workspace.",                       () => { }),
+                MenuItem("New File", "Creates a new source file.",                      () => WelcomeNewButton_Click(null, null)),
+                MenuItem("New Project", "Creates a new GeistStudio project.",           () => { }),
                 "-",
-                MenuItem("Open...", "Opens an existing file.", () => WelcomeOpenButton_Click(null, null)),
-                MenuItem("Open Folder...", "Opens a folder as a project.", () => { }),
-                MenuItem("Recent Files", "Shows recently opened files.", () => { }),
+                MenuItem("Open...", "Opens an existing file.",                          () => WelcomeOpenButton_Click(null, null)),
+                MenuItem("Open Folder...", "Opens a folder as a project.",              () => { }),
+                MenuItem("Recent Files", "Shows recently opened files.",                () => { }),
                 "-",
-                MenuItem("Save", "Saves the current file.", () => Util.HandleFileAction(this, "save")),
+                MenuItem("Save", "Saves the current file.",                             () => Util.HandleFileAction(this, "save")),
                 MenuItem("Save As...", "Saves the current file with a different name.", () => Util.SaveAsFile(this)),
-                MenuItem("Save All", "Saves all opened files.", () => Util.HandleFileAction(this, "save", true)),
+                MenuItem("Save All", "Saves all opened files.",                         () => Util.HandleFileAction(this, "save", true)),
                 "-",
-                MenuItem("Close", "Closes the current file.", () => Util.HandleFileAction(this, "close")),
-                MenuItem("Close All", "Closes all opened files.", () => Util.HandleFileAction(this, "close", true)),
+                MenuItem("Close", "Closes the current file.",                           () => Util.HandleFileAction(this, "close")),
+                MenuItem("Close All", "Closes all opened files.",                       () => Util.HandleFileAction(this, "close", true)),
                 "-",
-                MenuItem("Settings", "Opens GeistStudio settings.", () => { }),
+                MenuItem("Settings", "Opens GeistStudio settings.",                     () => { }),
                 "-",
-                MenuItem("Exit", "Closes GeistStudio.", () => { })
+                MenuItem("Exit", "Closes GeistStudio.",                                 () => { })
             );
             // 
             // Edit
             // 
             AddMenuItems(
                 this.EditMenu,
-                MenuItem("Undo", "Reverts the last action.", () => { }),
-                MenuItem("Redo", "Restores the last undone action.", () => { }),
+                MenuItem("Undo", "Reverts the last action.",                () => Util.simulateKeyPress(new string[] { "Ctrl", "Z" })),
+                MenuItem("Redo", "Restores the last undone action.",        () => Util.simulateKeyPress(new string[] { "Ctrl", "Y" })),
                 "-",
-                MenuItem("Cut", "Cuts the selected text.", () => { }),
-                MenuItem("Copy", "Copies the selected text.", () => { }),
-                MenuItem("Paste", "Pastes copied text.", () => { }),
-                MenuItem("Delete", "Deletes the selected content.", () => { }),
+                MenuItem("Cut", "Cuts the selected text.",                  () => Util.simulateKeyPress(new string[] { "Ctrl", "X" })),
+                MenuItem("Copy", "Copies the selected text.",               () => Util.simulateKeyPress(new string[] { "Ctrl", "C" })),
+                MenuItem("Paste", "Pastes copied text.",                    () => Util.simulateKeyPress(new string[] { "Ctrl", "V" })),
+                MenuItem("Delete", "Deletes the selected content.",         () => Util.simulateKeyPress(new string[] { "Ctrl", "DEL" })),
                 "-",
-                MenuItem("Find", "Searches text in the current document.", () => { }),
-                MenuItem("Replace", "Finds and replaces text.", () => { }),
-                MenuItem("Go to Line", "Jumps to a specific line number.", () => { }),
-                MenuItem("Select All", "Selects all content.", () => { }),
+                MenuItem("Find", "Searches text in the current document.",  () => Util.simulateKeyPress(new string[] { "Ctrl", "F" })),
+                MenuItem("Replace", "Finds and replaces text.",             () => Util.simulateKeyPress(new string[] { "Ctrl", "H" })),
+                MenuItem("Go to Line", "Jumps to a specific line number.",  () => Util.simulateKeyPress(new string[] { "Ctrl", "G" })),
+                MenuItem("Select All", "Selects all content.",              () => Util.simulateKeyPress(new string[] { "Ctrl", "A" })),
                 "-",
-                MenuItem("Open Settings", "Opens the Settings Menu.", () => Util.OpenSettings())
+                MenuItem("Open Settings", "Opens the Settings Menu.",       () => Util.OpenSettings())
             );
             // 
             // Selection
@@ -587,7 +597,7 @@ namespace GeistStudio
                 MenuItem("Check for Updates", "Checks for new versions.", () => { }),
                 MenuItem("Show Versions", "Shows every Version with it's changes.", () => Util.openInformation()),
                 "-",
-                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => Util.openAbout()),
+                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => Util.openAbout(this)),
                 "-",
                 MenuItem("Cache Store", "Just a Debug Function for the Memory Caching.", () => Util.cacheData()),
                 MenuItem("Cache Load", "Just a Debug Function for the Memory Caching.", () => Util.loadCacheData())
@@ -731,6 +741,111 @@ namespace GeistStudio
 
 
 
+
+
+
+
+
+
+
+
+        private Dictionary<string, Color> keywordColors = new Dictionary<string, Color>
+            {
+                { "const",    Color.FromArgb(86, 156, 214) },
+                { "let",      Color.FromArgb(156, 220, 254) },
+                { "if",       Color.FromArgb(197, 134, 192) },
+                { "else",     Color.FromArgb(216, 160, 223) },
+                { "while",    Color.FromArgb(86, 182, 194) },
+                { "for",      Color.FromArgb(78, 140, 201) },
+                { "function", Color.FromArgb(220, 220, 170) },
+                { "return",   Color.FromArgb(198, 120, 221) },
+                { "class",    Color.FromArgb(78, 201, 176) },
+                { "new",      Color.FromArgb(209, 154, 102) },
+                { "print",    Color.FromArgb(156, 204, 101) },
+                { "TODO",     Color.FromArgb(255, 80, 80) }
+            };
+
+        private Dictionary<string, Color> syntaxPatterns = new Dictionary<string, Color>
+            {
+                { @"\b\d+(\.\d+)?\b", Color.FromArgb(181, 206, 168) }
+            };
+
+        private Dictionary<string, Color> identifierPatterns = new Dictionary<string, Color>
+            {
+                { @"\bfunction\s+([A-Za-z_]\w*)", Color.FromArgb(220, 220, 170) },
+                { @"\b(?!if\b|else\b|while\b|for\b|function\b|return\b|class\b|new\b)([A-Za-z_]\w*)\s*\(", Color.FromArgb(220, 220, 170) }
+            };
+
+        private Dictionary<string, Color> stringCommentPatterns = new Dictionary<string, Color>
+            {
+                { "\"(?:[^\"\\\\]|\\\\.)*\"", Color.FromArgb(206, 145, 120) },
+                { "//.*",                     Color.FromArgb(106, 153, 85) },
+                { @"/\*[\s\S]*?\*/",          Color.FromArgb(106, 153, 85) }
+            };
+
+        private static void EnableDoubleBuffering(Control control)
+        {
+            typeof(Control).InvokeMember("DoubleBuffered",
+                System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                null, control, new object[] { true });
+        }
+
+        private void HighlightGrouped(SyncedRichTextBox editor, Dictionary<string, Color> words, bool resetColors, int rangeStart, int rangeLength)
+        {
+            var grouped = new Dictionary<string, Color>();
+            foreach (var group in words.GroupBy(kvp => kvp.Value))
+            {
+                string combined = @"\b(" + string.Join("|", group.Select(g => Regex.Escape(g.Key))) + @")\b";
+                grouped[combined] = group.Key;
+            }
+            editor.HighlightSyntax(grouped, useRegex: true, resetColors: resetColors, rangeStart: rangeStart, rangeLength: rangeLength);
+        }
+
+        private HashSet<string> CollectDeclaredNames(string text)
+        {
+            var names = new HashSet<string>();
+
+            foreach (Match m in Regex.Matches(text, @"\b(?:let|const)\s+([A-Za-z_]\w*)"))
+                names.Add(m.Groups[1].Value);
+
+            foreach (Match m in Regex.Matches(text, @"\bfunction\s+[A-Za-z_]\w*\s*\(([^)]*)\)"))
+            {
+                foreach (var p in m.Groups[1].Value.Split(','))
+                {
+                    string name = p.Trim();
+                    if (!string.IsNullOrEmpty(name) && Regex.IsMatch(name, @"^[A-Za-z_]\w*$"))
+                        names.Add(name);
+                }
+            }
+            return names;
+        }
+
+
+        private void ApplyHighlighting(SyncedRichTextBox editor, HashSet<string> declaredNames, int rangeStart = -1, int rangeLength = -1)
+        {
+            HighlightGrouped(editor, keywordColors, resetColors: true, rangeStart, rangeLength);
+            editor.HighlightSyntax(syntaxPatterns, useRegex: true, resetColors: false, rangeStart: rangeStart, rangeLength: rangeLength);
+            editor.HighlightSyntax(identifierPatterns, useRegex: true, resetColors: false, useGroupOne: true, rangeStart: rangeStart, rangeLength: rangeLength);
+
+            if (declaredNames.Count > 0)
+            {
+                string combined = @"\b(" + string.Join("|", declaredNames.Select(Regex.Escape)) + @")\b";
+                editor.HighlightSyntax(new Dictionary<string, Color> { { combined, Color.FromArgb(156, 220, 254) } },
+                    useRegex: true, resetColors: false, rangeStart: rangeStart, rangeLength: rangeLength);
+            }
+
+            editor.HighlightSyntax(stringCommentPatterns, useRegex: true, resetColors: false, rangeStart: rangeStart, rangeLength: rangeLength);
+        }
+
+        
+        private (int start, int length) GetRangeAroundCaret(SyncedRichTextBox editor, int bufferChars = 1000)
+        {
+            int caret = editor.SelectionStart;
+            int start = Math.Max(0, caret - bufferChars);
+            int end = Math.Min(editor.TextLength, caret + bufferChars);
+            return (start, end - start);
+        }
+
         public void OpenFileInNewTab(string title, string content, bool opened = false, bool hideMsg = false)
         {
             TabPage page = new TabPage(title);
@@ -744,65 +859,55 @@ namespace GeistStudio
             linePanel.Width = 50;
             linePanel.BackColor = Util.Config.Colors.Background.Editor.LineNumbers;
 
-            Label lineNumbers = new Label();
-            lineNumbers.AutoSize = false;
-            lineNumbers.Location = new Point(0, 0);
-            lineNumbers.Width = linePanel.Width;
-            lineNumbers.Font = new Font("Consolas", 11F);
-            lineNumbers.ForeColor = Util.Config.Colors.Foreground.Editor.LineNumbers;
-            lineNumbers.TextAlign = ContentAlignment.TopRight;
-            lineNumbers.Padding = new Padding(0, 2, 6, 0);
-
             SyncedRichTextBox editor = new SyncedRichTextBox();
             editor.Multiline = true;
             editor.AcceptsTab = true;
             editor.WordWrap = false;
             editor.MaxLength = 0;
             editor.Dock = DockStyle.Fill;
-            editor.Text = content;
             editor.Font = new Font("Consolas", 11F);
             editor.BackColor = Util.Config.Colors.Background.Editor.Background;
             editor.ForeColor = Util.Config.Colors.Foreground.Text;
             editor.BorderStyle = BorderStyle.None;
             editor.DetectUrls = false;
-
             editor.ScrollBars = RichTextBoxScrollBars.Both;
+
+            EnableDoubleBuffering(container);
+            EnableDoubleBuffering(linePanel);
+            EnableDoubleBuffering(editor);
+
+            int cachedLineHeight = -1;
+            HashSet<string> declaredNamesCache = new HashSet<string>();
 
             int GetLineHeight()
             {
+                if (cachedLineHeight > 0)
+                    return cachedLineHeight;
+
                 using (Graphics g = editor.CreateGraphics())
                 {
-                    return TextRenderer.MeasureText(g, "Ay", editor.Font,
+                    cachedLineHeight = TextRenderer.MeasureText(g, "Ay", editor.Font,
                         new Size(int.MaxValue, int.MaxValue),
                         TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Height;
                 }
+                return cachedLineHeight;
             }
 
             void EnableUnboundedHorizontalScroll()
             {
                 if (!editor.IsHandleCreated)
                     return;
-
                 SendMessage(editor.Handle, EM_SETTARGETDEVICE, IntPtr.Zero, (IntPtr)1);
             }
 
-            void UpdateLineNumbers()
-            {
-                int lineCount = Math.Max(editor.Lines.Length, 1);
-                StringBuilder sb = new StringBuilder();
-
-                for (int i = 1; i <= lineCount; i++)
-                    sb.AppendLine(i.ToString());
-
-                lineNumbers.Text = sb.ToString();
-
-                int lineHeight = GetLineHeight();
-                lineNumbers.Height = Math.Max((lineCount + 1) * lineHeight, linePanel.Height);
-            }
-
-            void SyncLineNumberScroll()
+            //Line Numbers
+            linePanel.Paint += (s, e) =>
             {
                 if (!editor.IsHandleCreated)
+                    return;
+
+                int lineHeight = GetLineHeight();
+                if (lineHeight <= 0)
                     return;
 
                 int firstCharIndex = editor.GetCharIndexFromPosition(new Point(1, 1));
@@ -810,53 +915,89 @@ namespace GeistStudio
                 int firstLineCharIndex = editor.GetFirstCharIndexFromLine(firstVisibleLine);
                 Point charPos = editor.GetPositionFromCharIndex(firstLineCharIndex);
 
-                int lineHeight = GetLineHeight();
+                int y = charPos.Y;
+                int lineNumber = firstVisibleLine + 1;
+                int totalLines = Math.Max(editor.Lines.Length, 1);
 
-                lineNumbers.Top = charPos.Y - (firstVisibleLine * lineHeight);
+                using (var brush = new SolidBrush(Util.Config.Colors.Foreground.Editor.LineNumbers))
+                {
+                    while (y < linePanel.Height && lineNumber <= totalLines)
+                    {
+                        string text = lineNumber.ToString();
+                        var size = e.Graphics.MeasureString(text, editor.Font);
+                        e.Graphics.DrawString(text, editor.Font, brush, linePanel.Width - size.Width - 6, y);
+                        y += lineHeight;
+                        lineNumber++;
+                    }
+                }
+            };
+
+            System.Windows.Forms.Timer highlightTimer = new System.Windows.Forms.Timer();
+            highlightTimer.Interval = 300;
+            /*highlightTimer.Tick += (s, e) =>
+            {
+                highlightTimer.Stop();
+                declaredNamesCache = CollectDeclaredNames(editor.Text);
+                var (start, length) = GetRangeAroundCaret(editor);
+                ApplyHighlighting(editor, declaredNamesCache, start, length);
+            };*/
+
+            void RequestHighlight()
+            {
+                highlightTimer.Stop();
+                highlightTimer.Start();
             }
 
             editor.TextChanged += (s, e) =>
             {
-                UpdateLineNumbers();
+                linePanel.Invalidate();
                 EnableUnboundedHorizontalScroll();
-                SyncLineNumberScroll();
+                RequestHighlight();
+
+                declaredNamesCache = CollectDeclaredNames(editor.Text);
+                ApplyHighlighting(editor, declaredNamesCache);
+
+                /*declaredNamesCache = CollectDeclaredNames(editor.Text);
+                var (start, length) = GetRangeAroundCaret(editor);
+                ApplyHighlighting(editor, declaredNamesCache, start, length);*/
             };
 
             editor.FontChanged += (s, e) =>
             {
-                lineNumbers.Font = editor.Font;
-                SyncLineNumberScroll();
+                cachedLineHeight = -1;
+                linePanel.Invalidate();
             };
 
-            editor.Resize += (s, e) =>
-            {
-                SyncLineNumberScroll();
-            };
-
-            editor.VScroll += (s, e) => SyncLineNumberScroll();
-            editor.HScroll += (s, e) => SyncLineNumberScroll();
-            editor.KeyUp += (s, e) => SyncLineNumberScroll();
-            editor.SelectionChanged += (s, e) => SyncLineNumberScroll();
+            // Scroll Update
+            editor.Resize += (s, e) => linePanel.Invalidate();
+            editor.VScroll += (s, e) => linePanel.Invalidate();
+            editor.HScroll += (s, e) => linePanel.Invalidate();
+            editor.KeyUp += (s, e) => linePanel.Invalidate();
+            editor.SelectionChanged += (s, e) => linePanel.Invalidate();
 
             editor.HandleCreated += (s, e) =>
             {
                 EnableUnboundedHorizontalScroll();
-                SyncLineNumberScroll();
+                linePanel.Invalidate();
                 SetWindowTheme(editor.Handle, "DarkMode_Explorer", null);
+
+                // One Time Update
+                declaredNamesCache = CollectDeclaredNames(editor.Text);
+                ApplyHighlighting(editor, declaredNamesCache);
             };
-
-            UpdateLineNumbers();
-
-            linePanel.Controls.Add(lineNumbers);
 
             container.Controls.Add(editor);
             container.Controls.Add(linePanel);
-
             page.Controls.Add(container);
 
             FileList.TabPages.Add(page);
             FileList.SelectedTab = page;
             tabEditors.Add(page, editor);
+
+            editor.Text = content;
+
+            declaredNamesCache = CollectDeclaredNames(editor.Text);
+            ApplyHighlighting(editor, declaredNamesCache);
 
             FileList.PerformLayout();
             FileList.Invalidate(true);
@@ -865,6 +1006,10 @@ namespace GeistStudio
             if (!hideMsg)
                 Util.Notify(this, "Success", actionType + " file successfully");
         }
+
+
+
+
 
         public DialogResult ShowSaveDialog(bool closeFile = true)
         {
@@ -1050,6 +1195,24 @@ namespace GeistStudio
                 new Attributes(true, false, false),
                 Keys.T,
                 form => Util.OpenTerminal(form)
+            ),
+
+            new ShortCut(
+                new Attributes(false, false, false),
+                Keys.F5,
+                form => Util.ExecuteCode(form)
+            ),
+
+            new ShortCut(
+                new Attributes(false, false, false),
+                Keys.F6,
+                form => Util.OpenTerminal(form)
+            ),
+
+            new ShortCut(
+                new Attributes(false, false, false),
+                Keys.F7,
+                form => Util.OpenSettings()
             )
         };
 

@@ -29,10 +29,11 @@ using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Permissions;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 using static GeistStudio.Util;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace GeistStudio
 {
@@ -329,6 +330,7 @@ namespace GeistStudio
         }
     }
 
+
     public class SyncedRichTextBox : RichTextBox
     {
         public new event EventHandler VScroll;
@@ -337,22 +339,126 @@ namespace GeistStudio
         private const int WM_VSCROLL = 0x115;
         private const int WM_HSCROLL = 0x114;
         private const int WM_MOUSEWHEEL = 0x20A;
+        private const int WM_SETREDRAW = 0x000B;
+        private const int WM_USER = 0x400;
+        private const int EM_GETSCROLLPOS = WM_USER + 221;
+        private const int EM_SETSCROLLPOS = WM_USER + 222;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, bool wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, ref POINT lParam);
+
+        private bool _isHighlighting = false;
 
         protected override void WndProc(ref Message m)
         {
             base.WndProc(ref m);
 
             if (m.Msg == WM_VSCROLL || m.Msg == WM_MOUSEWHEEL)
-            {
                 VScroll?.Invoke(this, EventArgs.Empty);
-            }
             else if (m.Msg == WM_HSCROLL)
-            {
                 HScroll?.Invoke(this, EventArgs.Empty);
+        }
+
+        private POINT GetScrollPos()
+        {
+            POINT p = new POINT();
+            SendMessage(Handle, EM_GETSCROLLPOS, 0, ref p);
+            return p;
+        }
+
+        private void SetScrollPos(POINT p)
+        {
+            SendMessage(Handle, EM_SETSCROLLPOS, 0, ref p);
+        }
+
+        public void HighlightSyntax(Dictionary<string, Color> patterns, bool useRegex = false,
+            bool caseSensitive = false, bool resetColors = true, bool useGroupOne = false,
+            int rangeStart = -1, int rangeLength = -1)
+        {
+            if (!IsHandleCreated || _isHighlighting)
+                return;
+
+            _isHighlighting = true;
+
+            int selectionStart = SelectionStart;
+            int selectionLength = SelectionLength;
+            Color defaultColor = ForeColor;
+            POINT scrollPos = GetScrollPos();
+
+            SuspendDrawing();
+
+            try
+            {
+                string fullText = Text;
+                if (string.IsNullOrEmpty(fullText))
+                    return;
+
+                int start = rangeStart >= 0 ? Math.Max(0, Math.Min(rangeStart, fullText.Length)) : 0;
+                int length = rangeLength >= 0
+                    ? Math.Min(rangeLength, fullText.Length - start)
+                    : fullText.Length - start;
+
+                if (length <= 0)
+                    return;
+
+                string searchText = fullText.Substring(start, length);
+
+                if (resetColors)
+                {
+                    Select(start, length);
+                    SelectionColor = defaultColor;
+                }
+
+                var regexOptions = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
+
+                foreach (var kvp in patterns)
+                {
+                    string pattern = useRegex ? kvp.Key : $@"\b{Regex.Escape(kvp.Key)}\b";
+                    Color color = kvp.Value;
+
+                    foreach (Match match in Regex.Matches(searchText, pattern, regexOptions))
+                    {
+                        if (useGroupOne && match.Groups.Count > 1 && match.Groups[1].Success)
+                            Select(start + match.Groups[1].Index, match.Groups[1].Length);
+                        else
+                            Select(start + match.Index, match.Length);
+
+                        SelectionColor = color;
+                    }
+                }
+            }
+            finally
+            {
+                SelectionStart = selectionStart;
+                SelectionLength = selectionLength;
+                SelectionColor = defaultColor;
+
+                ResumeDrawing();
+
+                SetScrollPos(scrollPos);
+
+                _isHighlighting = false;
             }
         }
-    }
 
+        private void SuspendDrawing() => SendMessage(Handle, WM_SETREDRAW, false, IntPtr.Zero);
+
+        private void ResumeDrawing()
+        {
+            SendMessage(Handle, WM_SETREDRAW, true, IntPtr.Zero);
+            Invalidate();
+        }
+    }
 
 
 

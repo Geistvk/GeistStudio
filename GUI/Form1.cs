@@ -451,6 +451,62 @@ namespace GeistStudio
             }
         }
 
+        public struct HighlightSpan
+        {
+            public int Start;
+            public int Length;
+            public Color Color;
+            public HighlightSpan(int start, int length, Color color)
+            {
+                Start = start; Length = length; Color = color;
+            }
+        }
+
+        /// <summary>
+        /// Wendet bereits fertig berechnete Highlight-Spans an.
+        /// Muss auf dem UI-Thread aufgerufen werden. Die eigentliche Regex-Berechnung
+        /// (CollectDeclaredNames + Matches) soll VORHER im Hintergrund-Thread passiert sein.
+        /// </summary>
+        public void ApplyHighlightSpans(List<HighlightSpan> spans, Color defaultColor,
+            int rangeStart, int rangeLength)
+        {
+            if (!IsHandleCreated || _isHighlighting)
+                return;
+
+            _isHighlighting = true;
+
+            int selectionStart = SelectionStart;
+            int selectionLength = SelectionLength;
+            POINT scrollPos = GetScrollPos();
+
+            SuspendDrawing();
+            try
+            {
+                if (rangeLength > 0)
+                {
+                    Select(rangeStart, rangeLength);
+                    SelectionColor = defaultColor;
+                }
+
+                foreach (var span in spans)
+                {
+                    Select(span.Start, span.Length);
+                    SelectionColor = span.Color;
+                }
+            }
+            finally
+            {
+                SelectionStart = selectionStart;
+                SelectionLength = selectionLength;
+                SelectionColor = defaultColor;
+
+                ResumeDrawing();
+                SetScrollPos(scrollPos);
+
+                _isHighlighting = false;
+            }
+        }
+
         private void SuspendDrawing() => SendMessage(Handle, WM_SETREDRAW, false, IntPtr.Zero);
 
         private void ResumeDrawing()

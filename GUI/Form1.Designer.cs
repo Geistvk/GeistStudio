@@ -34,6 +34,7 @@ using System.Runtime.Remoting.Messaging;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static GeistStudio.Util;
@@ -749,21 +750,141 @@ namespace GeistStudio
 
 
 
-        private Dictionary<string, Color> keywordColors = new Dictionary<string, Color>
+
+
+
+        private const int WM_SETREDRAW = 0x000B;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, bool wParam, int lParam);
+
+        private struct HighlightSpan
+        {
+            public int Start;
+            public int Length;
+            public Color Color;
+            public HighlightSpan(int start, int length, Color color)
             {
-                { "const",    Color.FromArgb(86, 156, 214) },
-                { "let",      Color.FromArgb(156, 220, 254) },
-                { "if",       Color.FromArgb(197, 134, 192) },
-                { "else",     Color.FromArgb(216, 160, 223) },
-                { "while",    Color.FromArgb(86, 182, 194) },
-                { "for",      Color.FromArgb(78, 140, 201) },
-                { "function", Color.FromArgb(220, 220, 170) },
-                { "return",   Color.FromArgb(198, 120, 221) },
-                { "class",    Color.FromArgb(78, 201, 176) },
-                { "new",      Color.FromArgb(209, 154, 102) },
-                { "print",    Color.FromArgb(156, 204, 101) },
-                { "TODO",     Color.FromArgb(255, 80, 80) }
-            };
+                Start = start; Length = length; Color = color;
+            }
+        }
+
+
+
+
+        private (HashSet<string> declaredNames, List<SyncedRichTextBox.HighlightSpan> spans) ComputeHighlighting(
+            string text, int rangeStart, int rangeLength)
+        {
+            var declaredNames = CollectDeclaredNames(text);
+            var spans = new List<SyncedRichTextBox.HighlightSpan>();
+            string searchText = text.Substring(rangeStart, rangeLength);
+
+            void AddLayer(Dictionary<string, Color> patterns, bool useGroupOne)
+            {
+                foreach (var kvp in patterns)
+                {
+                    foreach (Match m in Regex.Matches(searchText, kvp.Key, RegexOptions.IgnoreCase))
+                    {
+                        Group g = (useGroupOne && m.Groups.Count > 1 && m.Groups[1].Success)
+                            ? m.Groups[1] : m.Groups[0];
+
+                        spans.Add(new SyncedRichTextBox.HighlightSpan(rangeStart + g.Index, g.Length, kvp.Value));
+                    }
+                }
+            }
+
+            AddLayer(syntaxPatterns, useGroupOne: false);
+            AddLayer(identifierPatterns, useGroupOne: true);
+
+            if (declaredNames.Count > 0)
+            {
+                string combined = @"\b(" + string.Join("|", declaredNames.Select(Regex.Escape)) + @")\b";
+                AddLayer(new Dictionary<string, Color> { { combined, Color.FromArgb(156, 220, 254) } }, useGroupOne: true);
+            }
+
+            AddLayer(stringCommentPatterns, useGroupOne: false);
+
+            var groupedKeywords = new Dictionary<string, Color>();
+            foreach (var group in keywordColors.GroupBy(kvp => kvp.Value))
+            {
+                string combined = @"\b(" + string.Join("|", group.Select(g => Regex.Escape(g.Key))) + @")\b";
+                groupedKeywords[combined] = group.Key;
+            }
+            AddLayer(groupedKeywords, useGroupOne: false);
+
+            return (declaredNames, spans);
+        }
+
+
+
+        
+
+        private CancellationTokenSource _highlightCts;
+        private long _highlightGeneration = 0;
+        private volatile bool _highlightRunning = false;
+        private bool _highlightPending = false;
+        private HashSet<string> declaredNamesCache = new HashSet<string>();
+
+        private async void HighlightAsync(SyncedRichTextBox editor, bool fullDocument = false)
+        {
+            if (_highlightRunning)
+            {
+                _highlightPending = true;
+                return;
+            }
+
+            _highlightRunning = true;
+            long myGeneration = Interlocked.Increment(ref _highlightGeneration);
+
+            string text = editor.Text;
+            if (text.Length == 0)
+            {
+                _highlightRunning = false;
+                return;
+            }
+
+            Color defaultColor = editor.ForeColor;
+
+            int rangeStart, rangeLength;
+            if (fullDocument)
+            {
+                rangeStart = 0;
+                rangeLength = text.Length;
+            }
+            else
+            {
+                var (s, l) = GetRangeAroundCaret(editor, bufferChars: 500);
+                rangeStart = s;
+                rangeLength = l;
+            }
+
+            try
+            {
+                var (declaredNames, spans) = await Task.Run(
+                    () => ComputeHighlighting(text, rangeStart, rangeLength));
+
+                if (myGeneration != Interlocked.Read(ref _highlightGeneration)) return;
+                if (editor.Text != text) return;
+
+                declaredNamesCache = declaredNames;
+                editor.ApplyHighlightSpans(spans, defaultColor, rangeStart, rangeLength);
+            }
+            finally
+            {
+                _highlightRunning = false;
+
+                if (_highlightPending)
+                {
+                    _highlightPending = false;
+                    HighlightAsync(editor);
+                }
+            }
+        }
+
+
+
+
+        private Dictionary<string, Color> keywordColors = new Dictionary<string, Color> {};
 
         private Dictionary<string, Color> syntaxPatterns = new Dictionary<string, Color>
             {
@@ -772,16 +893,54 @@ namespace GeistStudio
 
         private Dictionary<string, Color> identifierPatterns = new Dictionary<string, Color>
             {
-                { @"\bfunction\s+([A-Za-z_]\w*)", Color.FromArgb(220, 220, 170) },
-                { @"\b(?!if\b|else\b|while\b|for\b|function\b|return\b|class\b|new\b)([A-Za-z_]\w*)\s*\(", Color.FromArgb(220, 220, 170) }
+                { @"\bfunction\s+([A-Za-z_]\w*)", Color.FromArgb(220, 220, 170) }
             };
 
         private Dictionary<string, Color> stringCommentPatterns = new Dictionary<string, Color>
             {
                 { "\"(?:[^\"\\\\]|\\\\.)*\"", Color.FromArgb(206, 145, 120) },
                 { "//.*",                     Color.FromArgb(106, 153, 85) },
-                { @"/\*[\s\S]*?\*/",          Color.FromArgb(106, 153, 85) }
+                { @"/\*[\s\S]*?\*/",          Color.FromArgb(106, 153, 85) },
+                { "Copyright.*",              Color.FromArgb(255, 255, 80) }
             };
+
+        private void loadAboutData()
+        {
+            Color getCol(String colStr) { 
+                return Color.FromArgb(
+                    int.Parse(colStr.Split(',')[0]),
+                    int.Parse(colStr.Split(',')[1]),
+                    int.Parse(colStr.Split(',')[2])
+                );
+            }
+
+            Dictionary<string, object> root = (Dictionary<string, object>)JsonParser.LoadEmbeddedJson("GeistStudio.GeistStudioData.json");
+            Dictionary<string, object> config = (Dictionary<string, object>)root["Config"];
+            Dictionary<string, object> syntaxAll = (Dictionary<string, object>)config["Syntax"];
+            
+            
+            List<object> Syntax = (List<object>)syntaxAll["Keywords"];
+            for (int i = 0; i < Syntax.Count; i++)
+            {
+                var keyword = (Dictionary<string, object>)Syntax[i];
+                string color = (string)keyword["color"];
+                keywordColors[(string)keyword["name"]] = getCol(color);
+            }
+
+            String idCol = (string)syntaxAll["IdentifierColor"];
+            String idPat = @"\b(?!";
+            List<object> allIdPatterns = (List<object>)syntaxAll["Identifiers"];
+            for (int i = 0; i < allIdPatterns.Count; i++)
+            {
+                var pattern = (string)allIdPatterns[i];
+                idPat += pattern + @"\b";
+                if (i != allIdPatterns.Count - 1)
+                    idPat += @"|";
+            }
+            idPat += @")([A-Za-z_]\w*)\s*\(";
+            identifierPatterns[idPat] = getCol(idCol);
+        }
+
 
         private static void EnableDoubleBuffering(Control control)
         {
@@ -823,9 +982,9 @@ namespace GeistStudio
 
         private void ApplyHighlighting(SyncedRichTextBox editor, HashSet<string> declaredNames, int rangeStart = -1, int rangeLength = -1)
         {
-            HighlightGrouped(editor, keywordColors, resetColors: true, rangeStart, rangeLength);
             editor.HighlightSyntax(syntaxPatterns, useRegex: true, resetColors: false, rangeStart: rangeStart, rangeLength: rangeLength);
             editor.HighlightSyntax(identifierPatterns, useRegex: true, resetColors: false, useGroupOne: true, rangeStart: rangeStart, rangeLength: rangeLength);
+            HighlightGrouped(editor, keywordColors, resetColors: true, rangeStart, rangeLength);
 
             if (declaredNames.Count > 0)
             {
@@ -848,6 +1007,7 @@ namespace GeistStudio
 
         public void OpenFileInNewTab(string title, string content, bool opened = false, bool hideMsg = false)
         {
+            loadAboutData();
             TabPage page = new TabPage(title);
 
             Panel container = new Panel();
@@ -877,7 +1037,6 @@ namespace GeistStudio
             EnableDoubleBuffering(editor);
 
             int cachedLineHeight = -1;
-            HashSet<string> declaredNamesCache = new HashSet<string>();
 
             int GetLineHeight()
             {
@@ -933,14 +1092,12 @@ namespace GeistStudio
             };
 
             System.Windows.Forms.Timer highlightTimer = new System.Windows.Forms.Timer();
-            highlightTimer.Interval = 300;
-            /*highlightTimer.Tick += (s, e) =>
+            highlightTimer.Interval = 150;
+            highlightTimer.Tick += (s, e) =>
             {
                 highlightTimer.Stop();
-                declaredNamesCache = CollectDeclaredNames(editor.Text);
-                var (start, length) = GetRangeAroundCaret(editor);
-                ApplyHighlighting(editor, declaredNamesCache, start, length);
-            };*/
+                HighlightAsync(editor);
+            };
 
             void RequestHighlight()
             {
@@ -954,12 +1111,10 @@ namespace GeistStudio
                 EnableUnboundedHorizontalScroll();
                 RequestHighlight();
 
-                declaredNamesCache = CollectDeclaredNames(editor.Text);
+                /*
+                 declaredNamesCache = CollectDeclaredNames(editor.Text);
                 ApplyHighlighting(editor, declaredNamesCache);
-
-                /*declaredNamesCache = CollectDeclaredNames(editor.Text);
-                var (start, length) = GetRangeAroundCaret(editor);
-                ApplyHighlighting(editor, declaredNamesCache, start, length);*/
+                 */
             };
 
             editor.FontChanged += (s, e) =>
@@ -981,9 +1136,7 @@ namespace GeistStudio
                 linePanel.Invalidate();
                 SetWindowTheme(editor.Handle, "DarkMode_Explorer", null);
 
-                // One Time Update
-                declaredNamesCache = CollectDeclaredNames(editor.Text);
-                ApplyHighlighting(editor, declaredNamesCache);
+                HighlightAsync(editor, fullDocument: true);
             };
 
             container.Controls.Add(editor);
@@ -995,9 +1148,7 @@ namespace GeistStudio
             tabEditors.Add(page, editor);
 
             editor.Text = content;
-
-            declaredNamesCache = CollectDeclaredNames(editor.Text);
-            ApplyHighlighting(editor, declaredNamesCache);
+            HighlightAsync(editor, fullDocument: true);
 
             FileList.PerformLayout();
             FileList.Invalidate(true);

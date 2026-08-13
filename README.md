@@ -41,7 +41,7 @@ GeistStudio/
 ## Requirements
 
 - Windows operating system
-- [.NET](https://dotnet.microsoft.com/) (version matching the project's target framework)
+- [.NET](https://dotnet.microsoft.com/) (V 4.7.2)
 - Visual Studio 2022 or newer (recommended, for `.slnx` support)
 
 ## Installation & Running

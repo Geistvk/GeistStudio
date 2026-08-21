@@ -18,6 +18,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -35,8 +37,48 @@ namespace GeistStudio
             Application.SetCompatibleTextRenderingDefault(false);
             FormUtils.SetDefaultIcon();
 
-            GeistStudioWin form = new GeistStudioWin();
-            Application.Run(form);
+            LoadingScreen loading = new LoadingScreen();
+            GeistStudioWin mainForm = null;
+            Thread loadingThread = new Thread(() =>
+            {
+                Application.Run(loading);
+            });
+
+            loadingThread.SetApartmentState(ApartmentState.STA);
+            loadingThread.Start();
+
+            try
+            {
+                mainForm = new GeistStudioWin();
+
+                while (!loading.IsHandleCreated)
+                {
+                    Thread.Sleep(1);
+                }
+
+                loading.BeginInvoke(new Action(() =>
+                {
+                    loading.Close();
+                }));
+
+                loadingThread.Join();
+
+                Application.Run(mainForm);
+            }
+            catch
+            {
+                if (loading != null &&
+                    !loading.IsDisposed &&
+                    loading.IsHandleCreated)
+                {
+                    loading.BeginInvoke(new Action(() =>
+                    {
+                        loading.Close();
+                    }));
+                }
+
+                throw;
+            }
         }
     }
 }

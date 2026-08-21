@@ -54,6 +54,9 @@ namespace GeistStudio
             int wParam,
             int lParam);
 
+        [DllImport("user32.dll")]
+        public static extern int SetForegroundWindow(IntPtr hWnd);
+
         private static void handleFileFromIndex(GeistStudioWin form, int i, bool closeFile) 
         {
             TabPage page = form.FileList.TabPages[i];
@@ -496,6 +499,30 @@ namespace GeistStudio
             };
         }
 
+        public static void wait(int milliseconds)
+        {
+            var timer1 = new System.Windows.Forms.Timer();
+            if (milliseconds == 0 || milliseconds < 0) return;
+
+            //Console.WriteLine("start wait timer");
+            timer1.Interval = milliseconds;
+            timer1.Enabled = true;
+            timer1.Start();
+
+            timer1.Tick += (s, e) =>
+            {
+                timer1.Enabled = false;
+                timer1.Stop();
+                // Console.WriteLine("stop wait timer");
+            };
+
+            while (timer1.Enabled)
+            {
+                Application.DoEvents();
+            }
+        }
+
+
         public static void gotToHome(GeistStudioWin form)
         {
             form.FileList.SelectedTab = form.home;
@@ -525,13 +552,13 @@ namespace GeistStudio
             info.Open();
         }
 
-        public static void openAbout()
+        public static void openAbout(GeistStudioWin form)
         {
             if (about == null || about.IsDisposed)
                 about = new About();
             else
                 about.BringToFront();
-            about.Open();
+            about.Open(form);
         }
 
         public static string RequestHiddenInput(string prompt)
@@ -604,6 +631,42 @@ namespace GeistStudio
             String result = cpp.Run("script " + file.Text);
             terminal.Send(result);
         }
+
+
+        public static void simulateKeyPress(String[] Keys)
+        {
+            String keyPress = "";
+            String opKey = "";
+
+            for (int i = 0; i < Keys.Length; i++) {
+                String Key = Keys[i]; 
+
+                if (Key == "Ctrl") keyPress += "^";
+                else if (Key == "Shift") keyPress += "+";
+                else if (Key == "Alt") keyPress += "%";
+
+                if (Key == "Ctrl" || Key == "Shift" || Key == "Alt")
+                {
+                    opKey = Key;
+                    keyPress += "(";
+                }
+                else
+                    keyPress += Key;
+
+                if ((opKey == "Ctrl" || opKey == "Shift" || opKey == "Alt") && i == Keys.Length - 1)
+                    keyPress += ")";
+
+            }
+
+            SendKeys.Send(keyPress);
+        }
+
+
+
+
+
+
+
 
         public class AllColors
         {

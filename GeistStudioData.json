@@ -146,6 +146,10 @@
           "Background": "18, 16, 38",
           "Card": "30, 27, 58",
           "Contact": "24, 21, 48"
+        },
+        "Loading": {
+          "Background": "18, 16, 38",
+          "Progress": "40, 36, 65"
         }
       },
       "Foreground": {
@@ -173,8 +177,44 @@
         "About": {
           "SubText": "170, 170, 190",
           "Data": "200, 200, 220"
+        },
+        "Loading": {
+          "Text": "225, 220, 245",
+          "Progress": "124, 58, 237",
+          "Status": "145, 140, 165"
         }
       }
+    },
+    "Syntax": {
+      "Keywords": {
+        "const": "86, 156, 214",
+        "let": "156, 220, 254",
+        "if": "197, 134, 192",
+        "else": "216, 160, 223",
+        "while": "86, 182, 194",
+        "for": "78, 140, 201",
+        "function": "220, 220, 170",
+        "return": "198, 120, 221",
+        "class": "78, 201, 176",
+        "new": "209, 154, 102",
+        "print": "156, 204, 101",
+        "GeistStudio": "124, 58, 237",
+        "Geistvk": "124, 58, 237",
+        "TODO": "255, 80, 80",
+        "Comming": "80, 80, 255",
+        "Fix": "80, 255, 80"
+      },
+      "IdentifierColor": "220, 220, 170",
+      "Identifiers": [
+        "if",
+        "else",
+        "while",
+        "for",
+        "function",
+        "return",
+        "class",
+        "new"
+      ]
     },
     "About": {
       "Name": "GeistStudio",
@@ -190,31 +230,6 @@
       "SourceCode": "https://github.com/Geistvk/GeistStudio",
       "Author": "Geistvk",
       "CurVersion": "0.1.1"
-    },
-    "Syntax": {
-      "Keywords": [
-        { "name": "const",        "color": "86, 156, 214" },
-        { "name": "let" ,         "color": "156, 220, 254" },
-        { "name": "if",           "color": "197, 134, 192" },
-        { "name": "else",         "color": "216, 160, 223" },
-        { "name": "while",        "color": "86, 182, 194" },
-        { "name": "for",          "color": "78, 140, 201" },
-        { "name": "function",     "color": "220, 220, 170" },
-        { "name": "return",       "color": "198, 120, 221" },
-        { "name": "class",        "color": "78, 201, 176" },
-        { "name": "new",          "color": "209, 154, 102" },
-        { "name": "print",        "color": "156, 204, 101" },
-        { "name": "GeistStudio",  "color": "124, 58, 237" },
-        { "name": "Geistvk",      "color": "124, 58, 237" },
-        { "name": "TODO",         "color": "255, 80, 80" },
-        { "name": "Comming",      "color": "80, 80, 255" },
-        { "name": "Fix",          "color": "80, 255, 80" }
-      ],
-      "IdentifierColor":  "220, 220, 170",
-      "Identifiers": [
-        "if", "else", "while", "for", 
-        "function", "return", "class", "new"
-      ]
     }
   }
 }

@@ -21,6 +21,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -43,6 +44,9 @@ namespace GeistStudio
         {
             InitializeComponent();
             addComponents();
+            this.WindowState = FormWindowState.Minimized;
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
         }
     }
 
@@ -757,6 +761,190 @@ namespace GeistStudio
                 throw new Exception("Expected " + value);
 
             index += value.Length;
+        }
+    }
+
+
+
+
+
+
+
+
+    public class LoadingScreen : Form
+    {
+        private String name = "GeistStudio";
+        private Timer animationTimer;
+        private int animationSpeed = 4;
+        private int animationPosition = -120;
+        private readonly Color BackgroundColor = Color.FromArgb(18, 16, 38);
+        private readonly Color ProgressBackground = Color.FromArgb(40, 36, 65);
+        private readonly Color ProgressColor = Color.FromArgb(124, 58, 237);
+
+        public LoadingScreen()
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            StartPosition = FormStartPosition.CenterScreen;
+            Size = new Size(420, 220);
+            BackColor = BackgroundColor;
+            ShowInTaskbar = false;
+            Text = "Loading...";
+            DoubleBuffered = true;
+
+            CreateUI();
+
+            Shown += LoadingScreen_Shown;
+        }
+
+        private void CreateUI()
+        {
+            Panel logo = new Panel
+            {
+                Size = new Size(48, 48),
+                Location = new Point(186, 30)
+            };
+
+            logo.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                using (Brush brush = new SolidBrush(ProgressColor))
+                {
+                    e.Graphics.FillEllipse(
+                        brush,
+                        0,
+                        0,
+                        47,
+                        47);
+                }
+
+                using (Font font = new Font("Segoe UI", 18F, FontStyle.Bold))
+                using (Brush brush = new SolidBrush(Color.White))
+                {
+                    StringFormat format = new StringFormat
+                    {
+                        Alignment = StringAlignment.Center,
+                        LineAlignment = StringAlignment.Center
+                    };
+
+                    e.Graphics.DrawString(
+                        name[0].ToString().ToUpper(),
+                        font,
+                        brush,
+                        new Rectangle(0, 0, 48, 48),
+                        format);
+                }
+            };
+
+            Controls.Add(logo);
+
+            Label title = new Label
+            {
+                Text = name,
+                Location = new Point(20, 88),
+                Size = new Size(380, 32),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI Semibold", 17F),
+                ForeColor = Color.White,
+                BackColor = Color.Transparent
+            };
+
+            Controls.Add(title);
+
+            Label status = new Label
+            {
+                Text = "Loading...",
+                Location = new Point(20, 120),
+                Size = new Size(380, 25),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(145, 140, 165),
+                BackColor = Color.Transparent
+            };
+
+            Controls.Add(status);
+        }
+
+        private void LoadingScreen_Shown(object sender, EventArgs e)
+        {
+            bool isRev = false;
+            animationTimer = new Timer();
+            animationTimer.Interval = 12;
+            animationTimer.Tick += (s, args) =>
+            {
+                animationPosition += isRev ? -animationSpeed : animationSpeed;
+
+                if (animationPosition < -140 || 
+                    animationPosition > 300)
+                    isRev = !isRev;
+
+                Invalidate();
+            };
+
+            animationTimer.Start();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            e.Graphics.SmoothingMode =
+                SmoothingMode.AntiAlias;
+
+            Rectangle background = new Rectangle(
+                60,
+                163,
+                300,
+                5);
+
+            using (Brush brush =
+                new SolidBrush(ProgressBackground))
+            {
+                e.Graphics.FillRectangle(
+                    brush,
+                    background);
+            }
+
+            Rectangle progress = new Rectangle(
+                60 + animationPosition,
+                163,
+                140,
+                5);
+
+            GraphicsState state = e.Graphics.Save();
+
+            e.Graphics.SetClip(background);
+
+            using (LinearGradientBrush brush =
+                new LinearGradientBrush(
+                    new Rectangle(
+                        progress.X,
+                        progress.Y,
+                        progress.Width,
+                        progress.Height),
+                    Color.FromArgb(70, 58, 160),
+                    ProgressColor,
+                    LinearGradientMode.Horizontal))
+            {
+                e.Graphics.FillRectangle(
+                    brush,
+                    progress);
+            }
+
+            e.Graphics.Restore(state);
+        }
+
+        protected override void OnFormClosed(
+            FormClosedEventArgs e)
+        {
+            if (animationTimer != null)
+            {
+                animationTimer.Stop();
+                animationTimer.Dispose();
+                animationTimer = null;
+            }
+
+            base.OnFormClosed(e);
         }
     }
 }

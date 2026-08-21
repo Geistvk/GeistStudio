@@ -917,14 +917,12 @@ namespace GeistStudio
             Dictionary<string, object> root = (Dictionary<string, object>)JsonParser.LoadEmbeddedJson("GeistStudio.GeistStudioData.json");
             Dictionary<string, object> config = (Dictionary<string, object>)root["Config"];
             Dictionary<string, object> syntaxAll = (Dictionary<string, object>)config["Syntax"];
-            
-            
-            List<object> Syntax = (List<object>)syntaxAll["Keywords"];
-            for (int i = 0; i < Syntax.Count; i++)
+
+
+            Dictionary<string, object> Syntax = (Dictionary<string, object>)syntaxAll["Keywords"];
+            foreach (var item in Syntax)
             {
-                var keyword = (Dictionary<string, object>)Syntax[i];
-                string color = (string)keyword["color"];
-                keywordColors[(string)keyword["name"]] = getCol(color);
+                keywordColors[item.Key] = getCol((string)item.Value);
             }
 
             String idCol = (string)syntaxAll["IdentifierColor"];
@@ -1658,6 +1656,7 @@ namespace GeistStudio
             // 
             // GeistStudioWin
             // 
+            this.StartPosition = FormStartPosition.CenterScreen;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1280, 591);

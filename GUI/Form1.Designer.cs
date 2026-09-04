@@ -410,22 +410,24 @@ namespace GeistStudio
                     continue;
                 }
 
-                if (item is Tuple<string, string, Action> entry)
+                if (item is Tuple<string, string, string, Action> entry)
                 {
+                    string shortcut = entry.Item3 != "" ? $"\n ( {entry.Item3} )" : "";
+
                     menu.DropDownItems.Add(
                         CreateMenuItem(
                             entry.Item1,
-                            entry.Item2,
-                            entry.Item3
+                            entry.Item2 + shortcut,
+                            entry.Item4
                         )
                     );
                 }
             }
         }
 
-        private Tuple<string, string, Action> MenuItem(string name, string description, Action func)
+        private Tuple<string, string, string, Action> MenuItem(string name, string description, string shortcut, Action func)
         {
-            return new Tuple<string, string, Action>(name, description, func);
+            return new Tuple<string, string, string, Action>(name, description, shortcut, func);
         }
 
         private void addMenuComponents()
@@ -435,173 +437,173 @@ namespace GeistStudio
             // 
             AddMenuItems(
                 this.FileMenu,
-                MenuItem("New", "Creates a new empty workspace.",                       () => { }),
-                MenuItem("New File", "Creates a new source file.",                      () => WelcomeNewButton_Click(null, null)),
-                MenuItem("New Project", "Creates a new GeistStudio project.",           () => { }),
+                MenuItem("New", "Creates a new empty workspace.",                       "",             () => { }),
+                MenuItem("New File", "Creates a new source file.",                      "Ctrl+N",       () => WelcomeNewButton_Click(null, null)),
+                MenuItem("New Project", "Creates a new GeistStudio project.",           "",             () => { }),
                 "-",
-                MenuItem("Open...", "Opens an existing file.",                          () => WelcomeOpenButton_Click(null, null)),
-                MenuItem("Open Folder...", "Opens a folder as a project.",              () => { }),
-                MenuItem("Recent Files", "Shows recently opened files.",                () => { }),
+                MenuItem("Open...", "Opens an existing file.",                          "Ctrl+O",       () => WelcomeOpenButton_Click(null, null)),
+                MenuItem("Open Folder...", "Opens a folder as a project.",              "",             () => { }),
+                MenuItem("Recent Files", "Shows recently opened files.",                "",             () => { }),
                 "-",
-                MenuItem("Save", "Saves the current file.",                             () => Util.HandleFileAction(this, "save")),
-                MenuItem("Save As...", "Saves the current file with a different name.", () => Util.SaveAsFile(this)),
-                MenuItem("Save All", "Saves all opened files.",                         () => Util.HandleFileAction(this, "save", true)),
+                MenuItem("Save", "Saves the current file.",                             "Ctrl+S",       () => Util.HandleFileAction(this, "save")),
+                MenuItem("Save As...", "Saves the current file with a different name.", "Ctrl+Alt+S",   () => Util.SaveAsFile(this)),
+                MenuItem("Save All", "Saves all opened files.",                         "Ctrl+Shift+S", () => Util.HandleFileAction(this, "save", true)),
                 "-",
-                MenuItem("Close", "Closes the current file.",                           () => Util.HandleFileAction(this, "close")),
-                MenuItem("Close All", "Closes all opened files.",                       () => Util.HandleFileAction(this, "close", true)),
+                MenuItem("Close", "Closes the current file.",                           "Ctrl+W",       () => Util.HandleFileAction(this, "close")),
+                MenuItem("Close All", "Closes all opened files.",                       "Ctrl+Shift+W", () => Util.HandleFileAction(this, "close", true)),
                 "-",
-                MenuItem("Settings", "Opens GeistStudio settings.",                     () => { }),
+                MenuItem("Settings", "Opens GeistStudio settings.",                     "F7",           () => Util.OpenSettings()),
                 "-",
-                MenuItem("Exit", "Closes GeistStudio.",                                 () => { })
+                MenuItem("Exit", "Closes GeistStudio.",                                 "Ctrl+Q",       () => Util.closeWin(this))
             );
             // 
             // Edit
             // 
             AddMenuItems(
                 this.EditMenu,
-                MenuItem("Undo", "Reverts the last action.",                () => Util.simulateKeyPress(new string[] { "Ctrl", "Z" })),
-                MenuItem("Redo", "Restores the last undone action.",        () => Util.simulateKeyPress(new string[] { "Ctrl", "Y" })),
+                MenuItem("Undo", "Reverts the last action.",                "Ctrl+Z", () => Util.simulateKeyPress(new string[] { "Ctrl", "Z" })),
+                MenuItem("Redo", "Restores the last undone action.",        "Ctrl+Y", () => Util.simulateKeyPress(new string[] { "Ctrl", "Y" })),
                 "-",
-                MenuItem("Cut", "Cuts the selected text.",                  () => Util.simulateKeyPress(new string[] { "Ctrl", "X" })),
-                MenuItem("Copy", "Copies the selected text.",               () => Util.simulateKeyPress(new string[] { "Ctrl", "C" })),
-                MenuItem("Paste", "Pastes copied text.",                    () => Util.simulateKeyPress(new string[] { "Ctrl", "V" })),
-                MenuItem("Delete", "Deletes the selected content.",         () => Util.simulateKeyPress(new string[] { "Ctrl", "DEL" })),
+                MenuItem("Cut", "Cuts the selected text.",                  "Ctrl+X", () => Util.simulateKeyPress(new string[] { "Ctrl", "X" })),
+                MenuItem("Copy", "Copies the selected text.",               "Ctrl+C", () => Util.simulateKeyPress(new string[] { "Ctrl", "C" })),
+                MenuItem("Paste", "Pastes copied text.",                    "Ctrl+V", () => Util.simulateKeyPress(new string[] { "Ctrl", "V" })),
+                MenuItem("Delete", "Deletes the selected content.",         "Ctrl+DEL", () => Util.simulateKeyPress(new string[] { "Ctrl", "DEL" })),
                 "-",
-                MenuItem("Find", "Searches text in the current document.",  () => Util.simulateKeyPress(new string[] { "Ctrl", "F" })),
-                MenuItem("Replace", "Finds and replaces text.",             () => Util.simulateKeyPress(new string[] { "Ctrl", "H" })),
-                MenuItem("Go to Line", "Jumps to a specific line number.",  () => Util.simulateKeyPress(new string[] { "Ctrl", "G" })),
-                MenuItem("Select All", "Selects all content.",              () => Util.simulateKeyPress(new string[] { "Ctrl", "A" })),
+                MenuItem("Find", "Searches text in the current document.",  "Ctrl+F", () => Util.simulateKeyPress(new string[] { "Ctrl", "F" })),
+                MenuItem("Replace", "Finds and replaces text.",             "Ctrl+H", () => Util.simulateKeyPress(new string[] { "Ctrl", "H" })),
+                MenuItem("Go to Line", "Jumps to a specific line number.",  "Ctrl+G", () => Util.simulateKeyPress(new string[] { "Ctrl", "G" })),
+                MenuItem("Select All", "Selects all content.",              "Ctrl+A", () => Util.simulateKeyPress(new string[] { "Ctrl", "A" })),
                 "-",
-                MenuItem("Open Settings", "Opens the Settings Menu.",       () => Util.OpenSettings())
+                MenuItem("Open Settings", "Opens the Settings Menu.",       "F7", () => Util.OpenSettings())
             );
             // 
             // Selection
             // 
             AddMenuItems(
                 this.SelectionMenu,
-                MenuItem("Select All", "Selects the complete document.", () => { }),
-                MenuItem("Select Line", "Selects the current line.", () => { }),
-                MenuItem("Add Cursor", "Adds another text cursor.", () => { }),
-                MenuItem("Select All Occurrences", "Selects every matching occurrence.", () => { })
+                MenuItem("Select All", "Selects the complete document.",                    "Ctrl+A", () => Util.simulateKeyPress(new string[] { "Ctrl", "A" })),
+                MenuItem("Select Line", "Selects the current line.",                        "", () => { }),
+                MenuItem("Add Cursor", "Adds another text cursor.",                         "", () => { }),
+                MenuItem("Select All Occurrences", "Selects every matching occurrence.",    "", () => { })
             );
             // 
             // View
             // 
             AddMenuItems(
                 this.ViewMenu,
-                MenuItem("Explorer", "Shows the project file explorer.", () => { }),
-                MenuItem("Search", "Opens the global search panel.", () => { }),
+                MenuItem("Explorer", "Shows the project file explorer.",            "", () => { }),
+                MenuItem("Search", "Opens the global search panel.",                "", () => { }),
                 "-",
-                MenuItem("Terminal", "Opens the integrated terminal.", () => Util.OpenTerminal(this)),
-                MenuItem("Problems", "Shows detected errors and warnings.", () => { }),
-                MenuItem("Output", "Displays build and application output.", () => { }),
-                MenuItem("Debug Console", "Opens the debugging console.", () => { }),
+                MenuItem("Terminal", "Opens the integrated terminal.",              "Ctrl+T", () => Util.OpenTerminal(this)),
+                MenuItem("Problems", "Shows detected errors and warnings.",         "", () => { }),
+                MenuItem("Output", "Displays build and application output.",        "", () => { }),
+                MenuItem("Debug Console", "Opens the debugging console.",           "", () => { }),
                 "-",
-                MenuItem("Fullscreen", "Toggles fullscreen mode.", () => { }),
-                MenuItem("Zen Mode", "Activates distraction-free editing.", () => { })
+                MenuItem("Fullscreen", "Toggles fullscreen mode.",                  "", () => { }),
+                MenuItem("Zen Mode", "Activates distraction-free editing.",         "", () => { })
             );
             // 
             // Go
             // 
             AddMenuItems(
                 this.GoMenu,
-                MenuItem("Go to File", "Searches and opens a file.", () => { }),
+                MenuItem("Go to File", "Searches and opens a file.",            "", () => { }),
                 "-",
-                MenuItem("Go to Line", "Moves the cursor to a line.", () => { }),
-                MenuItem("Go to Symbol", "Searches symbols in the project.", () => { }),
+                MenuItem("Go to Line", "Moves the cursor to a line.",           "", () => { }),
+                MenuItem("Go to Symbol", "Searches symbols in the project.",    "", () => { }),
                 "-",
-                MenuItem("Go to Definition", "Jumps to a symbol definition.", () => { }),
-                MenuItem("Go to References", "Finds all references.", () => { }),
+                MenuItem("Go to Definition", "Jumps to a symbol definition.",   "", () => { }),
+                MenuItem("Go to References", "Finds all references.",           "", () => { }),
                 "-",
-                MenuItem("Go to Home", "Go back to the Welcome Screen.", () => Util.gotToHome(this))
+                MenuItem("Go to Home", "Go back to the Welcome Screen.",        "", () => Util.gotToHome(this))
             );
             // 
             // Project
             // 
             AddMenuItems(
                 this.ProjectMenu,
-                MenuItem("New Project", "Creates a new project.", () => { }),
-                MenuItem("Open Project", "Opens an existing project.", () => { }),
-                MenuItem("Close Project", "Closes the current project.", () => { }),
-                MenuItem("Project Settings", "Changes project configuration.", () => { })
+                MenuItem("New Project", "Creates a new project.",               "", () => { }),
+                MenuItem("Open Project", "Opens an existing project.",          "", () => { }),
+                MenuItem("Close Project", "Closes the current project.",        "", () => { }),
+                MenuItem("Project Settings", "Changes project configuration.",  "", () => { })
             );
             // 
             // Build
             // 
             AddMenuItems(
                 this.BuildMenu,
-                MenuItem("Build", "Compiles the current project.", () => { }),
-                MenuItem("Rebuild", "Cleans and rebuilds the project.", () => { }),
-                MenuItem("Clean", "Removes generated files.", () => { }),
-                MenuItem("Publish", "Creates a distributable build.", () => { })
+                MenuItem("Build", "Compiles the current project.",          "", () => { }),
+                MenuItem("Rebuild", "Cleans and rebuilds the project.",     "", () => { }),
+                MenuItem("Clean", "Removes generated files.",               "", () => { }),
+                MenuItem("Publish", "Creates a distributable build.",       "", () => { })
             );
             // 
             // Debug
             // 
             AddMenuItems(
                 this.DebugMenu,
-                MenuItem("Start", "Starts debugging.", () => { }),
-                MenuItem("Start Without Debugging", "Runs the project without debugger.", () => { }),
-                MenuItem("Stop", "Stops the current execution.", () => { }),
-                MenuItem("Restart", "Restarts the application.", () => { }),
+                MenuItem("Start", "Starts debugging.",                                      "", () => { }),
+                MenuItem("Start Without Debugging", "Runs the project without debugger.",   "", () => { }),
+                MenuItem("Stop", "Stops the current execution.",                            "", () => { }),
+                MenuItem("Restart", "Restarts the application.",                            "", () => { }),
                 "-",
-                MenuItem("Toggle Breakpoint", "Adds or removes a breakpoint.", () => { }),
+                MenuItem("Toggle Breakpoint", "Adds or removes a breakpoint.",              "", () => { }),
                 "-",
-                MenuItem("Step Over", "Executes the next line.", () => { }),
-                MenuItem("Step Into", "Enters the current function.", () => { }),
-                MenuItem("Step Out", "Leaves the current function.", () => { })
+                MenuItem("Step Over", "Executes the next line.",                            "", () => { }),
+                MenuItem("Step Into", "Enters the current function.",                       "", () => { }),
+                MenuItem("Step Out", "Leaves the current function.",                        "", () => { })
             );
             // 
             // Git
             // 
             AddMenuItems(
                 this.GitMenu,
-                MenuItem("Commit", "Creates a new Git commit.", () => { }),
-                MenuItem("Push", "Uploads changes to the repository.", () => { }),
+                MenuItem("Commit", "Creates a new Git commit.",                 "", () => { }),
+                MenuItem("Push", "Uploads changes to the repository.",          "", () => { }),
                 "-",
-                MenuItem("Pull", "Downloads repository changes.", () => { }),
-                MenuItem("Fetch", "Fetches remote repository information.", () => { }),
-                MenuItem("Merge", "Combines branches.", () => { }),
+                MenuItem("Pull", "Downloads repository changes.",               "", () => { }),
+                MenuItem("Fetch", "Fetches remote repository information.",     "", () => { }),
+                MenuItem("Merge", "Combines branches.",                         "", () => { }),
                 "-",
-                MenuItem("Branches", "Manages Git branches.", () => { }),
-                MenuItem("Clone Repository", "Copies a remote repository.", () => { })
+                MenuItem("Branches", "Manages Git branches.",                   "", () => { }),
+                MenuItem("Clone Repository", "Copies a remote repository.",     "", () => { })
             );
             // 
             // Tools
             // 
             AddMenuItems(
                 this.ToolsMenu,
-                MenuItem("Terminal", "Opens the integrated terminal.", () => Util.OpenTerminal(this)),
-                MenuItem("Extensions", "Manages installed extensions.", () => { }),
-                MenuItem("Format Document", "Formats the current document.", () => { }),
+                MenuItem("Terminal", "Opens the integrated terminal.",          "Ctrl+T", () => Util.OpenTerminal(this)),
+                MenuItem("Extensions", "Manages installed extensions.",         "", () => { }),
+                MenuItem("Format Document", "Formats the current document.",    "", () => { }),
                 "-",
-                MenuItem("Settings", "Opens the Settings Menu.", () => Util.OpenSettings()),
-                MenuItem("Options", "Opens editor options.", () => { })
+                MenuItem("Settings", "Opens the Settings Menu.",                "F7", () => Util.OpenSettings()),
+                MenuItem("Options", "Opens editor options.",                    "", () => { })
             );
             // 
             // Window
             // 
             AddMenuItems(
                 this.WindowMenu,
-                MenuItem("Split Editor", "Splits the editor view.", () => { }),
-                MenuItem("Next Tab", "Moves to the next tab.", () => { }),
-                MenuItem("Previous Tab", "Moves to the previous tab.", () => { })
+                MenuItem("Split Editor", "Splits the editor view.",          "", () => { }),
+                MenuItem("Next Tab", "Moves to the next tab.",               "", () => { }),
+                MenuItem("Previous Tab", "Moves to the previous tab.",       "", () => { })
             );
             // 
             // Help
             // 
             AddMenuItems(
                 this.HelpMenu,
-                MenuItem("Documentation", "Opens GeistStudio documentation.", () => { }),
-                MenuItem("Keyboard Shortcuts", "Shows available shortcuts.", () => { }),
+                MenuItem("Documentation", "Opens GeistStudio documentation.",               "", () => { }),
+                MenuItem("Keyboard Shortcuts", "Shows available shortcuts.",                "", () => { }),
                 "-",
-                MenuItem("Check for Updates", "Checks for new versions.", () => { }),
-                MenuItem("Show Versions", "Shows every Version with it's changes.", () => Util.openInformation()),
+                MenuItem("Check for Updates", "Checks for new versions.",                   "", () => { }),
+                MenuItem("Show Versions", "Shows every Version with it's changes.",         "", () => Util.openInformation()),
                 "-",
-                MenuItem("About GeistStudio", "Shows information about GeistStudio.", () => Util.openAbout(this)),
+                MenuItem("About GeistStudio", "Shows information about GeistStudio.",       "", () => Util.openAbout(this)),
                 "-",
-                MenuItem("Cache Store", "Just a Debug Function for the Memory Caching.", () => Util.cacheData()),
-                MenuItem("Cache Load", "Just a Debug Function for the Memory Caching.", () => Util.loadCacheData())
+                MenuItem("Cache Store", "Just a Debug Function for the Memory Caching.",    "", () => Util.cacheData()),
+                MenuItem("Cache Load", "Just a Debug Function for the Memory Caching.",     "", () => Util.loadCacheData())
             );
         }
 
@@ -819,7 +821,6 @@ namespace GeistStudio
 
         
 
-        private CancellationTokenSource _highlightCts;
         private long _highlightGeneration = 0;
         private volatile bool _highlightRunning = false;
         private bool _highlightPending = false;
@@ -1338,6 +1339,12 @@ namespace GeistStudio
                 new Attributes(true, false, false),
                 Keys.N,
                 form => form.WelcomeNewButton_Click(null, null)
+            ),
+
+            new ShortCut(
+                new Attributes(true, false, false),
+                Keys.Q,
+                form => Util.closeWin(form)
             ),
 
             new ShortCut(

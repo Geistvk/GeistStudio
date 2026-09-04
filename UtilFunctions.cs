@@ -523,6 +523,10 @@ namespace GeistStudio
         }
 
 
+        public static void closeWin(GeistStudioWin form) {
+            form.Close();
+        }
+
         public static void gotToHome(GeistStudioWin form)
         {
             form.FileList.SelectedTab = form.home;
@@ -737,6 +741,9 @@ namespace GeistStudio
 
             return group;
         }
+
+
+        // WIP Comming Soon
 
         public static void cacheData(bool Data = true)
         {

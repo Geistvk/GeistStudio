@@ -145,6 +145,29 @@ namespace GeistStudio
             }
         }
 
+        private void drawPascal(String line) 
+        {
+            String[] args = line.Split(' ');
+            int size = args.Length > 1 ? (int.Parse(args[1]) + 1) : 11;
+            //int gap = (size.ToString().Length >= 6) ? size.ToString().Length : 6;
+            int gap = Math.Max(size.ToString().Length, 6);
+
+            for (int i = 0; i < size; i++)
+            {
+                int val = 1;
+                String pascLine = $"{i.ToString().PadRight(4)}|  ";
+                pascLine += new string(' ', (size - i) * 3);
+
+                for (int j = 0; j <= i; j++)
+                {
+                    pascLine += $"{val, 6}";
+                    val = val * (i - j) / (j + 1);
+                }
+                Send(pascLine, false);
+            }
+            Send("");
+        }
+
         private void Console_KeyDown(object sender, KeyEventArgs e)
         {
             if ((e.KeyCode == Keys.Back || e.KeyCode == Keys.Left) && console.SelectionStart <= inputStart)
@@ -247,6 +270,11 @@ namespace GeistStudio
                             InitData += "\n";
                     }
                     Send(InitData);
+                    return;
+                }
+                else if (line.Contains("pascal"))
+                {
+                    drawPascal(line);
                     return;
                 }
 

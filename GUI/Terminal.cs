@@ -39,10 +39,11 @@ namespace GeistStudio
 {
     public partial class Terminal : Form
     {
-        private RichTextBox console;
-        private int inputStart;
+        public GeistStudioWin form;
+        private static RichTextBox console;
+        private static int inputStart;
 
-        public string Prompt { get; set; } = "root@GeistOS:/$ ";
+        public static string Prompt { get; set; } = "root@GeistOS:/$ ";
         public event Action<string> CommandEntered;
 
         private List<string> commandHistory = new List<string>();
@@ -73,6 +74,11 @@ namespace GeistStudio
             };
 
             Shown += Terminal_Shown;
+        }
+
+        public void setForm(GeistStudioWin mainForm)
+        {
+            form = mainForm;
         }
 
         private String addTrackingData(Action func)
@@ -125,7 +131,7 @@ namespace GeistStudio
                 console.Focus();
         }
 
-        public void WritePrompt()
+        public static void WritePrompt()
         {
             console.ReadOnly = false;
 
@@ -143,29 +149,6 @@ namespace GeistStudio
             {
                 e.IsInputKey = true;
             }
-        }
-
-        private void drawPascal(String line) 
-        {
-            String[] args = line.Split(' ');
-            int size = args.Length > 1 ? (int.Parse(args[1]) + 1) : 11;
-            //int gap = (size.ToString().Length >= 6) ? size.ToString().Length : 6;
-            int gap = Math.Max(size.ToString().Length, 6);
-
-            for (int i = 0; i < size; i++)
-            {
-                int val = 1;
-                String pascLine = $"{i.ToString().PadRight(4)}|  ";
-                pascLine += new string(' ', (size - i) * 3);
-
-                for (int j = 0; j <= i; j++)
-                {
-                    pascLine += $"{val, 6}";
-                    val = val * (i - j) / (j + 1);
-                }
-                Send(pascLine, false);
-            }
-            Send("");
         }
 
         private void Console_KeyDown(object sender, KeyEventArgs e)
@@ -272,10 +255,8 @@ namespace GeistStudio
                     Send(InitData);
                     return;
                 }
-                else if (line.Contains("pascal"))
-                {
-                    drawPascal(line);
-                    return;
+                else if (line.Contains("script")) {
+                    Util.ExecuteCode(form);
                 }
 
                 console.ReadOnly = true;
@@ -298,6 +279,11 @@ namespace GeistStudio
 
             console.SelectionStart = console.TextLength;
             console.ScrollToCaret();
+        }
+
+        public static void Write(string text, Boolean nextPrompt = true) {
+            if (!string.IsNullOrEmpty(text))
+                console.AppendText(text);
         }
 
         public void Send(string text, Boolean nextPrompt = true)

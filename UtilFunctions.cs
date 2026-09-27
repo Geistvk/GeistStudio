@@ -599,6 +599,7 @@ namespace GeistStudio
             else
                 terminal.BringToFront();
 
+            terminal.setForm(form);
             terminal.CommandEntered += (input) =>
             {
                 Task.Run(() =>
@@ -614,7 +615,7 @@ namespace GeistStudio
             };*/
 
             if (runCode)
-                terminal.Send(terminal.Prompt + "script " + fileName, false);
+                terminal.Send(Terminal.Prompt + "script " + fileName, false);
 
             terminal.Open();
             Util.Notify(form, "Success", "New Terminal opened successfully");
@@ -628,12 +629,80 @@ namespace GeistStudio
                 return;
             }
 
-            TabPage file = form.FileList.SelectedTab;
+            TabPage fileTmp = form.FileList.SelectedTab;
+            String fileName = fileTmp.Text;
 
-            OpenTerminal(form, true, file.Text);
+            OpenTerminal(form, true, fileName);
 
-            String result = cpp.Run("script " + file.Text);
-            terminal.Send(result);
+            //String result = cpp.Run("script " + fileName);
+            //terminal.Send(result);
+
+
+            string type = "script";
+            string scriptExt = "gsScript";
+
+            var interp = new Interpreter();
+            string script = "";
+            int numLine = 0;
+
+            if (fileName == "--example" || fileName == "-e")
+            {
+                interp.DownloadExample();
+                return;
+            }
+
+            StreamReader file = null;
+            bool isOpen = false;
+
+            try
+            {
+                file = new StreamReader(fileName);
+                isOpen = true;
+            }
+            catch
+            {
+                isOpen = false;
+            }
+
+            int dotIndex = fileName.LastIndexOf('.');
+            string ext = dotIndex >= 0 ? fileName.Substring(dotIndex + 1) : fileName;
+
+            if (ext != scriptExt)
+            {
+                Console.Error.Write(
+                      type + ": Invalid file type for ("
+                    + fileName + "). Expected ."
+                    + scriptExt + "\n");
+
+                if (isOpen)
+                    file.Close();
+            }
+
+            if (!isOpen)
+            {
+                Console.Error.Write(
+                      type + ": Cannot open "
+                    + fileName
+                    + " filename is invalid or file does not exist."
+                    + "\n");
+            }
+
+            string line;
+            int lineNumber = 1;
+            _ = lineNumber; // kept for parity with the original (void)lineNumber;
+
+            while ((line = file.ReadLine()) != null)
+            {
+                interp.GeistScriptCode.Add(line);
+                script += line + "\n";
+                lineNumber++;
+                numLine++;
+            }
+
+            file.Close();
+
+            interp.Execute(script);
+            Terminal.WritePrompt();
         }
 
 

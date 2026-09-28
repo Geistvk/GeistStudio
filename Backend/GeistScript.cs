@@ -311,11 +311,25 @@ namespace GeistStudio
         }
     }
 
+    public class Object {
+        public string Type = "";
+        public string Var = "";
+        public string Name = "";
+
+        public Object(string type, string var, string name)
+        {
+            Type = type;
+            var = var;
+            Name = name;
+        }
+    }
+
     public class Interpreter
     {
         private readonly Dictionary<string, Value> vars = new Dictionary<string, Value>();
         private readonly Dictionary<string, Func> funcs = new Dictionary<string, Func>();
         private readonly Dictionary<string, Class> classes = new Dictionary<string, Class>();
+        private readonly Dictionary<string, Object> objects = new Dictionary<string, Object>();
 
         private struct ConditionResult
         {
@@ -379,10 +393,10 @@ namespace GeistStudio
 
         private bool isGeistObj(Token token) {
             switch (token.Type) {
-                case TokenType.Window:  return true;
-                case TokenType.Button:  return true;
+                case TokenType.Window: return true;
+                case TokenType.Button: return true;
                 case TokenType.TextBox: return true;
-                case TokenType.Label:   return true;
+                case TokenType.Label: return true;
             }
             return false;
         }
@@ -467,6 +481,142 @@ namespace GeistStudio
                 tokens[pos].Type == TokenType.Identifier &&
                 tokens[pos + 1].Type == TokenType.Dot &&
                 tokens[pos + 2].Type == TokenType.Identifier;
+        }
+
+        private void setGeistObjectData(Token var, string name, Token className) 
+        {
+            objects[var.Text] = new Object(
+                className.Text,
+                name,
+                var.Text
+            );
+        }
+
+        private Object getObjectData(Token var) 
+        {
+            Object found;
+            if (objects.TryGetValue(var.Text, out found))
+                return found;
+            else 
+                return null;
+        }
+
+        private string loadGeistObjectData(Token var, string name, Token className) {
+            Object obj = getObjectData(var);
+
+            if (obj == null)
+                setGeistObjectData(var, name, className);
+
+            string output = ""
+                +  "{\n"
+                + $"   Type: '{obj.Type}'\n"
+                + $"   Name: '{obj.Name}'\n"
+                + $"   Var: '{obj.Var}'\n"
+                +  "}";
+
+            objects[var.Text] = obj;
+            return output;
+        }
+
+        private int createGeistObject(
+            Token t,
+            int Layer,
+            string parent,
+            int numLine,
+            List<Token> tokens,
+            int pos,
+            string caller = "root",
+            bool isRetCall = false,
+            bool isConstructor = false)
+        {
+            //Comming Soon
+            //Implementation of for "let var = new Window("Title");"
+
+            //Terminal.Write($"Creating Geist object: {t.Text}\n");
+            pos++;
+
+            Token lParen = tokens[pos++];
+            if (lParen.Type != TokenType.LParen)
+            {
+                ThrowError("Expected '(' after the function name.", lParen, numLine);
+                return pos;
+            }
+
+
+
+            Arithmetic arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine);
+            Token v = arithmetic.Val;
+            pos = arithmetic.NewPos;
+            String val = "";
+
+            if (v.Type == TokenType.Number)
+            {
+                ThrowError($"The {t.Text} Name can't be a number.", v, numLine);
+                return pos + 1;
+            }
+
+            if (v.Type == TokenType.StringLiteral)
+                val = v.Text;
+            else if (v.Type == TokenType.Identifier)
+            {
+                Value var2 = new Value();
+                if (IsVarName(v) && !IsLocalVarName(parent, v))
+                {
+                    var2 = GetOrCreate(vars, v.Text);
+                }
+                else if (IsLocalVarName(parent, v))
+                {
+                    var2 = GetOrCreate(funcs, parent).LocalVars[v.Text];
+                }
+                else if (IsFuncName(v))
+                {
+                    Arithmetic ret = GetReturn(v, Layer, parent, numLine, tokens, pos, "print", true);
+                    var2 = TokenToValue(ret.Val);
+                    pos = ret.NewPos;
+                }
+
+                if ((var2.Parent != parent && var2.Layer > Layer) || var2.Layer > Layer)
+                {
+                    ThrowError("This variable is not accessible in the current scope.", v, numLine);
+                    return pos;
+                }
+
+
+
+                if (!var2.IsString)
+                {
+                    ThrowError($"The {t.Text} Name can't be a number.", v, numLine);
+                    return pos + 1;
+                }
+                val = var2.Str;
+            }
+            pos--;
+
+            //if (val == "")
+            //    val = t.Text;
+
+            if (val == "")
+                val = tokens[pos - 5].Text;
+
+            Terminal.WriteLine($"{t.Text} Name: {val}");
+
+
+
+            Token rParen = tokens[pos++];
+            if (rParen.Type != TokenType.RParen)
+            {
+                ThrowError("Expected ')' to close the function arguments.", rParen, numLine);
+                return pos;
+            }
+
+            Token semi = tokens[pos++];
+            if (semi.Type != TokenType.Semicolon && !isRetCall && caller == "print")
+            {
+                ThrowError("Expected ';' after the function call.", semi, numLine);
+                return pos;
+            }
+
+            return pos;
         }
 
         private int ExecuteFunction(
@@ -1302,26 +1452,15 @@ namespace GeistStudio
                     pos++;
                     Token className = tokens[pos++];
 
-                    if (!IsClassName(className) && !isGeistObj(t))
+                    if (!IsClassName(className) && !isGeistObj(className))
                     {
                         ThrowError("Unknown class.", className, numLine);
                         return pos;
                     }
 
-                    if (isGeistObj(t))
+                    if (isGeistObj(className) && !IsVarName(name) && !IsLocalVarName(parent, name))
                     {
-                        /*
-                        HandleVal(
-                            string par,
-                            int lay,
-                            bool isConstant,
-                            string vS = "",
-                            long vL = 0,
-                            Token className = null
-                        ) 
-                        */
-                        //Comming Soon
-                        //Implementation of for "let var = new Window("Title");"
+                        vars[name.Text] = Value.HandleVal(par, lay, isConst, loadGeistObjectData(name, className), 0L, className);
                     }
                     else if ((IsVarName(name) || !IsVarName(name)) && !IsLocalVarName(parent, name))
                     {
@@ -1332,17 +1471,30 @@ namespace GeistStudio
                         GetOrCreate(funcs, parent).LocalVars[name.Text] = Value.HandleVal(par, lay, isConst, varStr, varNum, className);
                     }
 
-                    pos = ExecuteFunction(
-                        tokens[pos - 1],
-                        Layer + 1,
-                        className.Text,
-                        numLine,
-                        tokens,
-                        pos - 1,
-                        "constructor",
-                        false,
-                        true
-                    );
+                    if (!isGeistObj(className))
+                        pos = ExecuteFunction(
+                            tokens[pos - 1],
+                            Layer + 1,
+                            className.Text,
+                            numLine,
+                            tokens,
+                            pos - 1,
+                            "constructor",
+                            false,
+                            true
+                        );
+                    else
+                        pos = createGeistObject(
+                            tokens[pos - 1],
+                            Layer + 1,
+                            className.Text,
+                            numLine,
+                            tokens,
+                            pos - 1,
+                            "constructor",
+                            false,
+                            true
+                        );
 
                     return pos;
                 }

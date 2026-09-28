@@ -286,6 +286,14 @@ namespace GeistStudio
                 console.AppendText(text);
         }
 
+        public static void WriteLine(string text, Boolean nextPrompt = true)
+        {
+            if (!string.IsNullOrEmpty(text))
+                console.AppendText(text);
+
+            console.AppendText(Environment.NewLine);
+        }
+
         public void Send(string text, Boolean nextPrompt = true)
         {
             if (InvokeRequired)

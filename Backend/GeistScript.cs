@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Xml.Linq;
 
 namespace GeistStudio
 {
@@ -501,6 +502,23 @@ namespace GeistStudio
                 return null;
         }
 
+        private string formatGeistObjectData(Token var) 
+        {
+            Object obj = getObjectData(var);
+
+            if (obj == null)
+                return "None";
+
+            string output = ""
+                + "{\n"
+                + $"   Type: '{obj.Type}'\n"
+                + $"   Name: '{obj.Name}'\n"
+                + $"   Var: '{obj.Var}'\n"
+                + "}";
+
+            return output;
+        }
+
         private string loadGeistObjectData(Token var, string name, Token className) {
             Object obj = getObjectData(var);
 
@@ -597,6 +615,8 @@ namespace GeistStudio
 
             if (val == "")
                 val = tokens[pos - 5].Text;
+
+            setGeistObjectData(t, val, tokens[pos - 5]);
 
             Terminal.WriteLine($"{t.Text} Name: {val}");
 
@@ -1460,7 +1480,7 @@ namespace GeistStudio
 
                     if (isGeistObj(className) && !IsVarName(name) && !IsLocalVarName(parent, name))
                     {
-                        vars[name.Text] = Value.HandleVal(par, lay, isConst, loadGeistObjectData(name, className), 0L, className);
+                        vars[name.Text] = Value.HandleVal(par, lay, isConst, formatGeistObjectData(name), 0L, className);
                     }
                     else if ((IsVarName(name) || !IsVarName(name)) && !IsLocalVarName(parent, name))
                     {

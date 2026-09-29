@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Xml.Linq;
 
 namespace GeistStudio
@@ -208,6 +209,7 @@ namespace GeistStudio
         public int Layer;
         public string Parent = "";
         public Token ClassName = new Token();
+        public Token GeistObj = null;
 
         public static Value HandleVal(
             string par,
@@ -215,12 +217,14 @@ namespace GeistStudio
             bool isConstant,
             string vS = "",
             long vL = 0,
-            Token className = null)
+            Token className = null,
+            Token geistObj = null)
         {
             var x = new Value();
             x.Layer = lay;
             x.Parent = par;
             x.ClassName = className ?? new Token();
+            x.GeistObj = geistObj ?? new Token();
             x.IsObject = className != null;
             x.IsConst = isConstant;
 
@@ -317,10 +321,27 @@ namespace GeistStudio
         public string Var = "";
         public string Name = "";
 
+        public string[] Titles = new string[]
+        { 
+            "width",
+            "height",
+            "x",
+            "y"
+        };
+
+        public Dictionary<int, int> AttributeMap = new Dictionary<int, int>();
+        public int[] Attributes = new int[] 
+        { 
+            0, 
+            0, 
+            0, 
+            0 
+        };
+
         public Object(string type, string var, string name)
         {
             Type = type;
-            var = var;
+            Var = var;
             Name = name;
         }
     }
@@ -393,11 +414,33 @@ namespace GeistStudio
         }
 
         private bool isGeistObj(Token token) {
-            switch (token.Type) {
-                case TokenType.Window: return true;
-                case TokenType.Button: return true;
-                case TokenType.TextBox: return true;
-                case TokenType.Label: return true;
+            if (token != null)
+            {
+                switch (token.Type)
+                {
+                    case TokenType.Window: return true;
+                    case TokenType.Button: return true;
+                    case TokenType.TextBox: return true;
+                    case TokenType.Label: return true;
+                }
+            }
+            return false;
+        }
+
+        private bool isGeistObjVar(string parentFunc, Token token) 
+        {
+            if (token != null)
+            {
+                if (IsVarName(token) &&
+                    isGeistObj(vars[token.Text].GeistObj)
+                    )
+                    return true;
+                else if (IsLocalVarName(parentFunc, token))
+                {
+                    var func = GetOrCreate(funcs, parentFunc);
+                    if (isGeistObj(func.LocalVars[token.Text].GeistObj))
+                        return true;
+                }
             }
             return false;
         }
@@ -484,17 +527,29 @@ namespace GeistStudio
                 tokens[pos + 2].Type == TokenType.Identifier;
         }
 
-        private void setGeistObjectData(Token var, string name, Token className) 
+        private void setGeistObjectData(
+            string var, 
+            string name, 
+            string className,
+            Dictionary<int, int> attributeMap = null) 
         {
-            objects[var.Text] = new Object(
-                className.Text,
-                name,
-                var.Text
+            objects[var] = new Object(
+                className,
+                var,
+                name
             );
+
+            if (attributeMap == null)
+                for (int i = 0; i < objects[var].Titles.Length; i++)
+                    objects[var].AttributeMap[i] = 0;
+            else 
+                for (int i = 0; i < objects[var].Titles.Length; i++)
+                    if (attributeMap[i] != 0 && objects[var].AttributeMap[i] != attributeMap[i])
+                        objects[var].AttributeMap[i] = attributeMap[i];
         }
 
         private Object getObjectData(Token var) 
-        {
+        { 
             Object found;
             if (objects.TryGetValue(var.Text, out found))
                 return found;
@@ -511,29 +566,95 @@ namespace GeistStudio
 
             string output = ""
                 + "{\n"
-                + $"   Type: '{obj.Type}'\n"
+                + $"   Type: {obj.Type}\n"
                 + $"   Name: '{obj.Name}'\n"
-                + $"   Var: '{obj.Var}'\n"
-                + "}";
+                + $"   Variable Name: '{obj.Var}'\n";
+
+            for (int i = 0; i < obj.Titles.Length; i++)
+                output += $"   {obj.Titles[i]}: {obj.AttributeMap[i]}\n";
+
+            output += "}";
 
             return output;
         }
 
-        private string loadGeistObjectData(Token var, string name, Token className) {
-            Object obj = getObjectData(var);
+        private bool isValidAttribute(Token t)
+        {
+            switch (t.Text)
+            {
+                case "width":
+                case "height":
+                case "x":
+                case "y":
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
-            if (obj == null)
-                setGeistObjectData(var, name, className);
+        private int updateGeistObject(
+            Token t,
+            int Layer,
+            string parent,
+            int numLine,
+            List<Token> tokens,
+            int pos,
+            string caller = "root",
+            bool isRetCall = false,
+            bool isConstructor = false)
+        {
+            Object GeistObj = getObjectData(t);
+            string objVar = GeistObj != null ? GeistObj.Var : null;
+            Dictionary<int, int> attributeMap = new Dictionary<int, int>();
 
-            string output = ""
-                +  "{\n"
-                + $"   Type: '{obj.Type}'\n"
-                + $"   Name: '{obj.Name}'\n"
-                + $"   Var: '{obj.Var}'\n"
-                +  "}";
+            Token dot = tokens[pos++];
+            if (dot.Type != TokenType.Dot)
+            {
+                ThrowError("Expected '.' after the class name.", dot, numLine);
+                return pos;
+            }
 
-            objects[var.Text] = obj;
-            return output;
+            Token Attribute = tokens[pos++];
+            if (!isValidAttribute(Attribute))
+            {
+                ThrowError("Invalid attribute.", Attribute, numLine);
+                return pos;
+            }
+
+            Token equal = tokens[pos++];
+            if (equal.Type != TokenType.Assign)
+            {
+                ThrowError("Expected '=' after the Object attribute.", equal, numLine);
+                return pos;
+            }
+
+            Arithmetic arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine);
+            Token val = arithmetic.Val;
+            pos = arithmetic.NewPos;
+
+            for (int i = 0; i < GeistObj.Titles.Length; i++)
+            {
+                if (GeistObj.Titles[i] == Attribute.Text)
+                {
+                    GeistObj.Attributes[i] = int.Parse(val.Text);
+                    objects[objVar].AttributeMap[i] = int.Parse(val.Text);
+
+                    Terminal.WriteLine($"{GeistObj.Var}.{GeistObj.Titles[i]}: {GeistObj.Attributes[i]}");
+                    break;
+                }
+            }
+
+            Token semi = tokens[pos++];
+            if (semi.Type != TokenType.Semicolon)
+            {
+                ThrowError("Expected ';' after the Object attribute assignment.", semi, numLine);
+                return pos;
+            }
+
+            /*Terminal.WriteLine($"GeistObj.Type: {GeistObj.Type}");
+            Terminal.WriteLine($"GeistObj.Name: {GeistObj.Name}");
+            Terminal.WriteLine($"GeistObj.Var:  {GeistObj.Var}");*/
+            return pos;
         }
 
         private int createGeistObject(
@@ -552,6 +673,8 @@ namespace GeistStudio
 
             //Terminal.Write($"Creating Geist object: {t.Text}\n");
             pos++;
+
+            Token varName = tokens[pos - 4];
 
             Token lParen = tokens[pos++];
             if (lParen.Type != TokenType.LParen)
@@ -611,16 +734,13 @@ namespace GeistStudio
             pos--;
 
             //if (val == "")
-            //    val = t.Text;
+            //    val = t.Text; 
 
             if (val == "")
                 val = tokens[pos - 5].Text;
 
-            setGeistObjectData(t, val, tokens[pos - 5]);
-
-            Terminal.WriteLine($"{t.Text} Name: {val}");
-
-
+            setGeistObjectData(varName.Text, val, t.Text);
+            //Terminal.WriteLine($"{t.Text} Name: {val}");
 
             Token rParen = tokens[pos++];
             if (rParen.Type != TokenType.RParen)
@@ -1478,17 +1598,28 @@ namespace GeistStudio
                         return pos;
                     }
 
-                    if (isGeistObj(className) && !IsVarName(name) && !IsLocalVarName(parent, name))
+                    
+                    if ((IsVarName(name) || !IsVarName(name)) && !IsLocalVarName(parent, name) && !isGeistObj(className))
                     {
-                        vars[name.Text] = Value.HandleVal(par, lay, isConst, formatGeistObjectData(name), 0L, className);
+                        vars[name.Text] = Value.HandleVal(
+                            par, 
+                            lay, 
+                            isConst, 
+                            varStr, 
+                            varNum, 
+                            className
+                        );
                     }
-                    else if ((IsVarName(name) || !IsVarName(name)) && !IsLocalVarName(parent, name))
+                    else if (IsLocalVarName(parent, name) && !isGeistObj(className))
                     {
-                        vars[name.Text] = Value.HandleVal(par, lay, isConst, varStr, varNum, className);
-                    }
-                    else if (IsLocalVarName(parent, name))
-                    {
-                        GetOrCreate(funcs, parent).LocalVars[name.Text] = Value.HandleVal(par, lay, isConst, varStr, varNum, className);
+                        GetOrCreate(funcs, parent).LocalVars[name.Text] = Value.HandleVal(
+                            par, 
+                            lay, 
+                            isConst, 
+                            varStr, 
+                            varNum, 
+                            className
+                        );
                     }
 
                     if (!isGeistObj(className))
@@ -1515,6 +1646,19 @@ namespace GeistStudio
                             false,
                             true
                         );
+
+                    if (isGeistObj(className))
+                    {
+                        vars[name.Text] = Value.HandleVal(
+                            par,
+                            lay,
+                            isConst,
+                            formatGeistObjectData(name),
+                            0L,
+                            className, 
+                            className
+                        );
+                    }
 
                     return pos;
                 }
@@ -1843,7 +1987,10 @@ namespace GeistStudio
                 if (parent != "root" && GetOrCreate(funcs, parent).HasReturned)
                     return;
 
-                if (IsFuncName(t))
+                if (isGeistObjVar(parent, t)) {
+                    pos = updateGeistObject(t, Layer, parent, numLine, tokens, pos);
+                }
+                else if (IsFuncName(t))
                 {
                     pos = ExecuteFunction(t, Layer, parent, numLine, tokens, pos);
                 }

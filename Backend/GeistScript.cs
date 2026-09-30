@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Windows.Forms;
 using System.Xml.Linq;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace GeistStudio
 {
@@ -317,10 +320,14 @@ namespace GeistStudio
     }
 
     public class Object {
-        public string Type = "";
-        public string Var = "";
-        public string Name = "";
-
+        public string[] ObjectInfo = new string[] 
+        { 
+            "type",
+            "var",
+            "name",
+            "show",
+            "add"
+        };
         public string[] Titles = new string[]
         { 
             "width",
@@ -330,24 +337,29 @@ namespace GeistStudio
         };
 
         public Dictionary<int, int> AttributeMap = new Dictionary<int, int>();
-        public int[] Attributes = new int[] 
-        { 
-            0, 
-            0, 
-            0, 
-            0 
+        public Dictionary<int, string> ObjectInfoMap = new Dictionary<int, string>()
+        {
+            [0] = " ",
+            [1] = " ",
+            [2] = " ",
+            [3] = "false",
+            [4] = " ",
+            [5] = " "
         };
 
-        public Object(string type, string var, string name)
+        public Object(Dictionary<int, string> objectInfoMap = null)
         {
-            Type = type;
-            Var = var;
-            Name = name;
+            if (objectInfoMap != null)
+                ObjectInfoMap = new Dictionary<int, string>(objectInfoMap);
+
+            for (int i = 0; i < Titles.Length; i++)
+                AttributeMap[i] = -1;
         }
     }
 
     public class Interpreter
     {
+        public bool hasPrint = false;
         private readonly Dictionary<string, Value> vars = new Dictionary<string, Value>();
         private readonly Dictionary<string, Func> funcs = new Dictionary<string, Func>();
         private readonly Dictionary<string, Class> classes = new Dictionary<string, Class>();
@@ -528,30 +540,30 @@ namespace GeistStudio
         }
 
         private void setGeistObjectData(
-            string var, 
-            string name, 
-            string className,
-            Dictionary<int, int> attributeMap = null) 
+            Dictionary<int, string> geistObjMap,
+            Dictionary<int, int> attributeMap = null)
         {
-            objects[var] = new Object(
-                className,
-                var,
-                name
-            );
+            if (objects.ContainsKey(geistObjMap[1]))
+            {
+                if (geistObjMap != null)
+                    objects[geistObjMap[1]].ObjectInfoMap = geistObjMap;
 
-            if (attributeMap == null)
-                for (int i = 0; i < objects[var].Titles.Length; i++)
-                    objects[var].AttributeMap[i] = 0;
-            else 
-                for (int i = 0; i < objects[var].Titles.Length; i++)
-                    if (attributeMap[i] != 0 && objects[var].AttributeMap[i] != attributeMap[i])
-                        objects[var].AttributeMap[i] = attributeMap[i];
+                if (attributeMap != null)
+                    objects[geistObjMap[1]].AttributeMap = attributeMap;
+
+                return;
+            }
+
+            objects[geistObjMap[1]] = new Object(geistObjMap);
+
+            if (attributeMap != null)
+                objects[geistObjMap[1]].AttributeMap = attributeMap;
         }
 
-        private Object getObjectData(Token var) 
+        private Object getObjectData(string var) 
         { 
             Object found;
-            if (objects.TryGetValue(var.Text, out found))
+            if (objects.TryGetValue(var, out found))
                 return found;
             else 
                 return null;
@@ -559,37 +571,83 @@ namespace GeistStudio
 
         private string formatGeistObjectData(Token var) 
         {
-            Object obj = getObjectData(var);
+            Object obj = getObjectData(var.Text);
 
             if (obj == null)
                 return "None";
 
-            string output = ""
-                + "{\n"
-                + $"   Type: {obj.Type}\n"
-                + $"   Name: '{obj.Name}'\n"
-                + $"   Variable Name: '{obj.Var}'\n";
+            string output = "{\n";
+
+            /*for (int i = 0; i < obj.ObjectInfo.Length; i++)
+                output += $"   {obj.ObjectInfo[i]}: {obj.ObjectInfoMap[i]}\n";*/
+
+            Terminal.WriteLine($"ObjectInfoLenght: {obj.ObjectInfo.Length} | ObjectInfoMapLength: {obj.ObjectInfoMap.Count}");
 
             for (int i = 0; i < obj.Titles.Length; i++)
-                output += $"   {obj.Titles[i]}: {obj.AttributeMap[i]}\n";
+                output += $"   {obj.Titles[i]}: {obj.AttributeMap[i].ToString()}\n";
 
             output += "}";
 
             return output;
         }
 
+        private bool isStringObj(Token t)
+        {
+            Object tmpObj = new Object();
+
+            for (int i = 0; i < tmpObj.ObjectInfo.Length; i++)
+                if (tmpObj.ObjectInfo[i] == t.Text)
+                    return true;
+
+            return false;
+        }
+
         private bool isValidAttribute(Token t)
         {
-            switch (t.Text)
-            {
-                case "width":
-                case "height":
-                case "x":
-                case "y":
+            Object tmpObj = new Object();
+
+            for (int i = 0; i < tmpObj.Titles.Length; i++)
+                if (tmpObj.Titles[i] == t.Text)
                     return true;
-                default:
-                    return false;
-            }
+
+            for (int i = 0; i < tmpObj.ObjectInfo.Length; i++)
+                if (tmpObj.ObjectInfo[i] == t.Text)
+                    return true;
+
+            return false;
+        }
+
+        private bool isBoolObjInfo(string s) {
+            return (s.ToLower() == "true" || s.ToLower() == "false");
+        }
+
+        private void openGeistWin(string var) 
+        {
+            Object GeistObj = getObjectData(var);
+
+            if (GeistObj.ObjectInfoMap[0] != "Window")
+                return;
+
+            // Load all the Values
+            string winTitle = GeistObj.ObjectInfoMap[2];
+            int winWidth        = GeistObj.AttributeMap[0] != -1 ? GeistObj.AttributeMap[0] : 800;
+            int winHeight       = GeistObj.AttributeMap[1] != -1 ? GeistObj.AttributeMap[1] : 500;
+            int winX            = GeistObj.AttributeMap[2] != -1 ? GeistObj.AttributeMap[2] : (Screen.PrimaryScreen.WorkingArea.Width  - winWidth)  / 2;
+            int winY            = GeistObj.AttributeMap[3] != -1 ? GeistObj.AttributeMap[3] : (Screen.PrimaryScreen.WorkingArea.Height - winHeight) / 2;
+            Form geistObjWin = new Form();
+
+
+            geistObjWin.Text = winTitle;
+            geistObjWin.Size = new Size(winWidth, winHeight);
+            geistObjWin.BackColor = Util.Config.Colors.Background.BackgroundDark;
+            geistObjWin.StartPosition = FormStartPosition.Manual;
+            geistObjWin.Location = new Point(winX, winY);
+
+            Util.CreateCustomTitleBar(geistObjWin, winTitle);
+
+            geistObjWin.Show();
+            geistObjWin.BringToFront();
+            geistObjWin.Focus();
         }
 
         private int updateGeistObject(
@@ -603,8 +661,8 @@ namespace GeistStudio
             bool isRetCall = false,
             bool isConstructor = false)
         {
-            Object GeistObj = getObjectData(t);
-            string objVar = GeistObj != null ? GeistObj.Var : null;
+            Object GeistObj = getObjectData(t.Text);
+            string objVar = GeistObj != null ? GeistObj.ObjectInfoMap[1] : null;
             Dictionary<int, int> attributeMap = new Dictionary<int, int>();
 
             Token dot = tokens[pos++];
@@ -632,16 +690,91 @@ namespace GeistStudio
             Token val = arithmetic.Val;
             pos = arithmetic.NewPos;
 
-            for (int i = 0; i < GeistObj.Titles.Length; i++)
+            // Check if the value is a valid Number
+            if (val.Type != TokenType.Number && !isStringObj(Attribute)) 
             {
-                if (GeistObj.Titles[i] == Attribute.Text)
-                {
-                    GeistObj.Attributes[i] = int.Parse(val.Text);
-                    objects[objVar].AttributeMap[i] = int.Parse(val.Text);
+                ThrowError("Expected a Number as an Object Attribute.", equal, numLine);
+                return pos;
+            }
+            if (val.Type == TokenType.Number && int.Parse(val.Text) < 0)
+            {
+                ThrowError($"Expected a positive integer as the {Attribute.Text} Attribute of the Object.", equal, numLine);
+                return pos;
+            }
+            if (Attribute.Equals(objects[objVar].ObjectInfo[3]) &&
+                !isBoolObjInfo(val.Text))
+            {
+                ThrowError($"Expected a Boolean as the {Attribute.Text} Attribute of the Object.", equal, numLine);
+                return pos;
+            }
 
-                    Terminal.WriteLine($"{GeistObj.Var}.{GeistObj.Titles[i]}: {GeistObj.Attributes[i]}");
+            if (val.Type == TokenType.Identifier)
+            {
+                Value var2 = new Value();
+                if (IsVarName(val) && !IsLocalVarName(parent, val))
+                {
+                    var2 = GetOrCreate(vars, val.Text);
+                }
+                else if (IsLocalVarName(parent, val))
+                {
+                    var2 = GetOrCreate(funcs, parent).LocalVars[val.Text];
+                }
+                else if (IsFuncName(val))
+                {
+                    Arithmetic ret = GetReturn(val, Layer, parent, numLine, tokens, pos, "print", true);
+                    var2 = TokenToValue(ret.Val);
+                    pos = ret.NewPos;
+                }
+
+                if ((var2.Parent != parent && var2.Layer > Layer) || var2.Layer > Layer)
+                {
+                    ThrowError("This variable is not accessible in the current scope.", val, numLine);
+                    return pos;
+                }
+
+                val = new Token(TokenType.String, var2.Str);
+            }
+
+            for (int i = 0; i < objects[objVar].Titles.Length; i++)
+            {
+                if (objects[objVar].Titles[i] == Attribute.Text)
+                {
+                    objects[objVar].AttributeMap[i] = int.Parse(val.Text);
                     break;
                 }
+            }
+
+            for (int i = 0; i < objects[objVar].ObjectInfo.Length; i++)
+            {
+                if (objects[objVar].ObjectInfo[i] == Attribute.Text && objects[objVar] != null)
+                {
+                    //Need to fix Later 
+                    /*if (objects[objVar].ObjectInfo[4] == Attribute.Text && i == 4)
+                    {
+                        objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
+                    }
+                    else*/
+                        objects[objVar].ObjectInfoMap[i] = val.Text;
+
+                    if (i == 3)
+                        openGeistWin(objVar);
+
+                    break;
+                }
+            }
+
+            if (vars.ContainsKey(objVar))
+            {
+                Value old = vars[objVar];
+                vars[objVar] = Value.HandleVal(
+                    old.Parent,
+                    old.Layer,
+                    old.IsConst,
+                    formatGeistObjectData(t),
+                    0L,
+                    old.ClassName,
+                    old.GeistObj
+                );
             }
 
             Token semi = tokens[pos++];
@@ -739,7 +872,13 @@ namespace GeistStudio
             if (val == "")
                 val = tokens[pos - 5].Text;
 
-            setGeistObjectData(varName.Text, val, t.Text);
+            Dictionary<int, string> geistObjMap = new Dictionary<int, string> { };
+            geistObjMap[0] = t.Text;
+            geistObjMap[1] = varName.Text;
+            geistObjMap[2] = val;
+            geistObjMap[3] = "false";
+
+            setGeistObjectData(geistObjMap);
             //Terminal.WriteLine($"{t.Text} Name: {val}");
 
             Token rParen = tokens[pos++];
@@ -1653,7 +1792,7 @@ namespace GeistStudio
                             par,
                             lay,
                             isConst,
-                            formatGeistObjectData(name),
+                            formatGeistObjectData(name), 
                             0L,
                             className, 
                             className
@@ -2026,6 +2165,7 @@ namespace GeistStudio
                 }
                 else if (t.Type == TokenType.Print)
                 {
+                    hasPrint = true;
                     Token lParen = tokens[pos++];
                     if (lParen.Type != TokenType.LParen)
                     {

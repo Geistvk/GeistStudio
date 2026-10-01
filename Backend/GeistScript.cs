@@ -1,6 +1,24 @@
-﻿using System;
+﻿/*
+ * Copyright (C) 2026 Geistvk
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -326,7 +344,8 @@ namespace GeistStudio
             "var",
             "name",
             "show",
-            "add"
+            "add",
+            "text"
         };
         public string[] Titles = new string[]
         { 
@@ -578,10 +597,8 @@ namespace GeistStudio
 
             string output = "{\n";
 
-            /*for (int i = 0; i < obj.ObjectInfo.Length; i++)
-                output += $"   {obj.ObjectInfo[i]}: {obj.ObjectInfoMap[i]}\n";*/
-
-            Terminal.WriteLine($"ObjectInfoLenght: {obj.ObjectInfo.Length} | ObjectInfoMapLength: {obj.ObjectInfoMap.Count}");
+            for (int i = 0; i < obj.ObjectInfo.Length; i++)
+                output += $"   {obj.ObjectInfo[i]}: {obj.ObjectInfoMap[i]}\n";
 
             for (int i = 0; i < obj.Titles.Length; i++)
                 output += $"   {obj.Titles[i]}: {obj.AttributeMap[i].ToString()}\n";
@@ -621,6 +638,52 @@ namespace GeistStudio
             return (s.ToLower() == "true" || s.ToLower() == "false");
         }
 
+        private static readonly Dictionary<string, Func<Control>> ControlFactories =
+            new Dictionary<string, Func<Control>>
+            {
+                ["Button"] = () => new System.Windows.Forms.Button
+                {
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Util.Config.Colors.Background.Button,
+                    ForeColor = Util.Config.Colors.Foreground.Text,
+                    FlatAppearance = { BorderSize = 0 },
+                    UseVisualStyleBackColor = false,
+                    Cursor = Cursors.Hand
+                },
+                ["TextBox"] = () => new System.Windows.Forms.TextBox
+                {
+                    BorderStyle = BorderStyle.None,
+                    BackColor = Util.Config.Colors.Background.Dialog.TextBox,
+                    ForeColor = Util.Config.Colors.Foreground.Dialog.Text
+                },
+                ["Label"] = () => new System.Windows.Forms.Label
+                {
+                    ForeColor = Util.Config.Colors.Foreground.Text
+                }
+            };
+
+        private void addChildToParent(Form win, Object obj)
+        {
+            string name = obj.ObjectInfoMap[2]  != "" ? obj.ObjectInfoMap[2] : obj.ObjectInfoMap[0];
+            string text = obj.ObjectInfoMap[5]  != "" ? obj.ObjectInfoMap[5] : obj.ObjectInfoMap[2];
+            int width   = obj.AttributeMap[0]   != -1 ? obj.AttributeMap[0] : TextRenderer.MeasureText(text, win.Font).Width;
+            int height  = obj.AttributeMap[1]   != -1 ? obj.AttributeMap[1] : win.Font.Height;
+            int x       = obj.AttributeMap[2]   != -1 ? obj.AttributeMap[2] : (win.ClientSize.Width - width) / 2;
+            int y       = obj.AttributeMap[3]   != -1 ? obj.AttributeMap[3] : (win.ClientSize.Height - height) / 2;
+
+            Func<Control> create;
+            if (ControlFactories.TryGetValue(obj.ObjectInfoMap[0], out create))
+            {
+                Control control = create();
+                control.Font = win.Font;
+                control.Text = text;
+                control.Name = name;
+                control.Location = new Point(x, y);
+                control.Size = new Size(width, height);
+                win.Controls.Add(control);
+            }
+        }
+
         private void openGeistWin(string var) 
         {
             Object GeistObj = getObjectData(var);
@@ -629,21 +692,35 @@ namespace GeistStudio
                 return;
 
             // Load all the Values
-            string winTitle = GeistObj.ObjectInfoMap[2];
+            string winTitle     = GeistObj.ObjectInfoMap[2];
             int winWidth        = GeistObj.AttributeMap[0] != -1 ? GeistObj.AttributeMap[0] : 800;
             int winHeight       = GeistObj.AttributeMap[1] != -1 ? GeistObj.AttributeMap[1] : 500;
             int winX            = GeistObj.AttributeMap[2] != -1 ? GeistObj.AttributeMap[2] : (Screen.PrimaryScreen.WorkingArea.Width  - winWidth)  / 2;
             int winY            = GeistObj.AttributeMap[3] != -1 ? GeistObj.AttributeMap[3] : (Screen.PrimaryScreen.WorkingArea.Height - winHeight) / 2;
-            Form geistObjWin = new Form();
+            string[] childs     = GeistObj.ObjectInfoMap[4].Trim().Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            Form geistObjWin    = new Form();
 
 
             geistObjWin.Text = winTitle;
+            geistObjWin.Name = winTitle;
             geistObjWin.Size = new Size(winWidth, winHeight);
             geistObjWin.BackColor = Util.Config.Colors.Background.BackgroundDark;
             geistObjWin.StartPosition = FormStartPosition.Manual;
             geistObjWin.Location = new Point(winX, winY);
+            geistObjWin.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 
             Util.CreateCustomTitleBar(geistObjWin, winTitle);
+
+            for (int i = 0; i < childs.Length; i++) 
+            {
+                string childVar = childs[i];
+                if (objects[childVar] != null)
+                {
+                    Object obj = objects[childVar];
+                    Terminal.WriteLine($"Var: {childVar} | Child {i}: {obj.ObjectInfoMap[2]} | Type: {obj.ObjectInfoMap[0]} | Text: {obj.ObjectInfoMap[5]}");
+                    addChildToParent(geistObjWin, obj);
+                }
+            }
 
             geistObjWin.Show();
             geistObjWin.BringToFront();
@@ -686,9 +763,16 @@ namespace GeistStudio
                 return pos;
             }
 
-            Arithmetic arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine);
-            Token val = arithmetic.Val;
-            pos = arithmetic.NewPos;
+            Arithmetic arithmetic;
+            Token val = tokens[pos++];
+
+            if (val.Type != TokenType.Identifier)
+            {
+                pos--;
+                arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine);
+                val = arithmetic.Val;
+                pos = arithmetic.NewPos;
+            }
 
             // Check if the value is a valid Number
             if (val.Type != TokenType.Number && !isStringObj(Attribute)) 
@@ -708,33 +792,6 @@ namespace GeistStudio
                 return pos;
             }
 
-            if (val.Type == TokenType.Identifier)
-            {
-                Value var2 = new Value();
-                if (IsVarName(val) && !IsLocalVarName(parent, val))
-                {
-                    var2 = GetOrCreate(vars, val.Text);
-                }
-                else if (IsLocalVarName(parent, val))
-                {
-                    var2 = GetOrCreate(funcs, parent).LocalVars[val.Text];
-                }
-                else if (IsFuncName(val))
-                {
-                    Arithmetic ret = GetReturn(val, Layer, parent, numLine, tokens, pos, "print", true);
-                    var2 = TokenToValue(ret.Val);
-                    pos = ret.NewPos;
-                }
-
-                if ((var2.Parent != parent && var2.Layer > Layer) || var2.Layer > Layer)
-                {
-                    ThrowError("This variable is not accessible in the current scope.", val, numLine);
-                    return pos;
-                }
-
-                val = new Token(TokenType.String, var2.Str);
-            }
-
             for (int i = 0; i < objects[objVar].Titles.Length; i++)
             {
                 if (objects[objVar].Titles[i] == Attribute.Text)
@@ -748,12 +805,19 @@ namespace GeistStudio
             {
                 if (objects[objVar].ObjectInfo[i] == Attribute.Text && objects[objVar] != null)
                 {
-                    //Need to fix Later 
-                    /*if (objects[objVar].ObjectInfo[4] == Attribute.Text && i == 4)
+                    if (objects[objVar].ObjectInfo[4] == Attribute.Text && 
+                        i == 4 && objects[objVar].ObjectInfo[i] != null &&
+                        objects[objVar].ObjectInfo[i] != " ")
                     {
-                        objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
+                        if (objects[val.Text].ObjectInfoMap[0] == "Window")
+                        {
+                            ThrowError($"Cannot assign a Window object to another Window object.", equal, numLine);
+                            return pos;
+                        }
+                        //objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
+                        objects[objVar].ObjectInfoMap[i] += $"{val.Text},";
                     }
-                    else*/
+                    else
                         objects[objVar].ObjectInfoMap[i] = val.Text;
 
                     if (i == 3)
@@ -816,7 +880,12 @@ namespace GeistStudio
                 return pos;
             }
 
+            Object tmpObj = new Object();
+            List<string> objInfos = new List<string> { };
+            Dictionary<int, string> geistObjMap = new Dictionary<int, string> { };
 
+            objInfos.Add(t.Text);
+            objInfos.Add(varName.Text);
 
             Arithmetic arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine);
             Token v = arithmetic.Val;
@@ -872,14 +941,16 @@ namespace GeistStudio
             if (val == "")
                 val = tokens[pos - 5].Text;
 
-            Dictionary<int, string> geistObjMap = new Dictionary<int, string> { };
-            geistObjMap[0] = t.Text;
-            geistObjMap[1] = varName.Text;
-            geistObjMap[2] = val;
-            geistObjMap[3] = "false";
+            objInfos.Add(val);
+            objInfos.Add("false");
+
+            while (objInfos.Count < tmpObj.ObjectInfo.Length)
+                objInfos.Add(" ");
+
+            for (int i = 0; i < tmpObj.ObjectInfo.Length; i++)
+                geistObjMap[i] = objInfos[i];
 
             setGeistObjectData(geistObjMap);
-            //Terminal.WriteLine($"{t.Text} Name: {val}");
 
             Token rParen = tokens[pos++];
             if (rParen.Type != TokenType.RParen)

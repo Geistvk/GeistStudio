@@ -345,7 +345,8 @@ namespace GeistStudio
             "name",
             "show",
             "add",
-            "text"
+            "text",
+            "onClick"
         };
         public string[] Titles = new string[]
         { 
@@ -380,6 +381,7 @@ namespace GeistStudio
     public class Interpreter
     {
         public bool hasPrint = false;
+        public bool initialized = false;
         private readonly Dictionary<string, Value> vars = new Dictionary<string, Value>();
         private readonly Dictionary<string, Func> funcs = new Dictionary<string, Func>();
         private readonly Dictionary<string, Class> classes = new Dictionary<string, Class>();
@@ -663,15 +665,16 @@ namespace GeistStudio
                 }
             };
 
-        private void addChildToParent(Form win, Object obj)
+        private void addChildToParent(Form win, Object obj, int Layer, int numLine)
         {
-            string name = obj.ObjectInfoMap[2]  != "" ? obj.ObjectInfoMap[2] : obj.ObjectInfoMap[0];
-            string text = obj.ObjectInfoMap[5]  != "" ? obj.ObjectInfoMap[5] : obj.ObjectInfoMap[2];
-            int width   = obj.AttributeMap[0]   != -1 ? obj.AttributeMap[0] : TextRenderer.MeasureText(text, win.Font).Width;
-            int height  = obj.AttributeMap[1]   != -1 ? obj.AttributeMap[1] : win.Font.Height;
-            int x       = obj.AttributeMap[2]   != -1 ? obj.AttributeMap[2] : (win.ClientSize.Width - width) / 2;
-            int y       = obj.AttributeMap[3]   != -1 ? obj.AttributeMap[3] : (win.ClientSize.Height - height) / 2;
-            int padding = obj.AttributeMap[4]   != -1 ? obj.AttributeMap[4] / 4 : 10;
+            string name     = obj.ObjectInfoMap[2]  != "" ? obj.ObjectInfoMap[2] : obj.ObjectInfoMap[0];
+            string text     = obj.ObjectInfoMap[5]  != "" ? obj.ObjectInfoMap[5] : obj.ObjectInfoMap[2];
+            string onClick  = obj.ObjectInfoMap[6]  != "" ? obj.ObjectInfoMap[6] : null;
+            int width       = obj.AttributeMap[0]   != -1 ? obj.AttributeMap[0] : TextRenderer.MeasureText(text, win.Font).Width;
+            int height      = obj.AttributeMap[1]   != -1 ? obj.AttributeMap[1] : win.Font.Height;
+            int x           = obj.AttributeMap[2]   != -1 ? obj.AttributeMap[2] : (win.ClientSize.Width - width) / 2;
+            int y           = obj.AttributeMap[3]   != -1 ? obj.AttributeMap[3] : (win.ClientSize.Height - height) / 2;
+            int padding     = obj.AttributeMap[4]   != -1 ? obj.AttributeMap[4] / 4 : 10; 
 
             Func<Control> create;
             if (ControlFactories.TryGetValue(obj.ObjectInfoMap[0], out create))
@@ -681,12 +684,25 @@ namespace GeistStudio
                 control.Text = text;
                 control.Name = name;
                 control.Location = new Point(x, y);
-                control.Size = new Size((width + padding), (height + padding)); 
+                control.Size = new Size((width + padding), (height + padding));
+
+                if (onClick != null)
+                {
+                    Func func = GetOrCreate(funcs, onClick);
+
+                    control.Click += (sender, e) => ExecuteTokens(func.Body, func.Name, Layer, numLine);
+                }
+
                 win.Controls.Add(control);
             }
         }
 
-        private void openGeistWin(string var) 
+        private void Control_Click(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void openGeistWin(string var, int Layer, int numLine)
         {
             Object GeistObj = getObjectData(var);
 
@@ -720,7 +736,7 @@ namespace GeistStudio
                 {
                     Object obj = objects[childVar];
                     //Terminal.WriteLine($"Var: {childVar} | Child {i}: {obj.ObjectInfoMap[2]} | Type: {obj.ObjectInfoMap[0]} | Text: {obj.ObjectInfoMap[5]}");
-                    addChildToParent(geistObjWin, obj);
+                    addChildToParent(geistObjWin, obj, Layer, numLine);
                 }
             }
 
@@ -740,6 +756,7 @@ namespace GeistStudio
             bool isRetCall = false,
             bool isConstructor = false)
         {
+            int newLayer = Layer + 1;
             Object GeistObj = getObjectData(t.Text);
             string objVar = GeistObj != null ? GeistObj.ObjectInfoMap[1] : null;
             Dictionary<int, int> attributeMap = new Dictionary<int, int>();
@@ -748,27 +765,27 @@ namespace GeistStudio
             if (dot.Type != TokenType.Dot)
             {
                 ThrowError("Expected '.' after the class name.", dot, numLine);
-                return pos;
+                return -1;
             }
 
             Token Attribute = tokens[pos++];
             if (!isValidAttribute(Attribute))
             {
                 ThrowError("Invalid attribute.", Attribute, numLine);
-                return pos;
+                return -1;
             }
 
             Token equal = tokens[pos++];
             if (equal.Type != TokenType.Assign)
             {
                 ThrowError("Expected '=' after the Object attribute.", equal, numLine);
-                return pos;
+                return -1;
             }
 
             Arithmetic arithmetic;
             Token val = tokens[pos++];
 
-            if (val.Type != TokenType.Identifier)
+            if (val.Type != TokenType.Identifier && !IsFuncName(val))
             {
                 pos--;
                 arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine);
@@ -779,25 +796,29 @@ namespace GeistStudio
             // Check if the value is a valid Number
             if (val.Type != TokenType.Number && !isStringObj(Attribute)) 
             {
-                ThrowError("Expected a Number as an Object Attribute.", equal, numLine);
-                return pos;
+                ThrowError("Expected a Number as an Object Attribute.", val, numLine);
+                return -1;
             }
             if (val.Type == TokenType.Number && int.Parse(val.Text) < 0)
             {
-                ThrowError($"Expected a positive integer as the {Attribute.Text} Attribute of the Object.", equal, numLine);
-                return pos;
+                ThrowError($"Expected a positive integer as the {Attribute.Text} Attribute of the Object.", val, numLine);
+                return -1;
             }
             if (Attribute.Equals(objects[objVar].ObjectInfo[3]) &&
                 !isBoolObjInfo(val.Text))
             {
-                ThrowError($"Expected a Boolean as the {Attribute.Text} Attribute of the Object.", equal, numLine);
-                return pos;
+                ThrowError($"Expected a Boolean as the {Attribute.Text} Attribute of the Object.", val, numLine);
+                return -1;
             }
 
             for (int i = 0; i < objects[objVar].Titles.Length; i++)
             {
                 if (objects[objVar].Titles[i] == Attribute.Text)
                 {
+                    if (int.Parse(val.Text) < 0) {
+                        ThrowError($"The {objects[objVar].Titles[i]} attribute must be a positive integer.", val, numLine);
+                        return -1;
+                    }
                     objects[objVar].AttributeMap[i] = int.Parse(val.Text);
                     break;
                 }
@@ -807,23 +828,38 @@ namespace GeistStudio
             {
                 if (objects[objVar].ObjectInfo[i] == Attribute.Text && objects[objVar] != null)
                 {
-                    if (objects[objVar].ObjectInfo[4] == Attribute.Text && 
+                    if (objects[objVar].ObjectInfo[4] == Attribute.Text &&
                         i == 4 && objects[objVar].ObjectInfo[i] != null &&
                         objects[objVar].ObjectInfo[i] != " ")
                     {
                         if (objects[val.Text].ObjectInfoMap[0] == "Window")
                         {
-                            ThrowError($"Cannot assign a Window object to another Window object.", equal, numLine);
-                            return pos;
+                            ThrowError($"Cannot assign a Window object to another Window object.", val, numLine);
+                            return -1;
+                        }
+                        if (t.Text.Equals(val.Text))
+                        {
+                            ThrowError($"Cannot assign a object to itself.", val, numLine);
+                            return -1;
                         }
                         //objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
                         objects[objVar].ObjectInfoMap[i] += $"{val.Text},";
+                    }
+                    else if (objects[objVar].ObjectInfo[6] == Attribute.Text && 
+                            i == 6) 
+                    {
+                        if (!IsFuncName(val)) {
+                            ThrowError($"Expected a function name as the {Attribute.Text} Attribute of the Object.", val, numLine);
+                            return -1;
+                        }
+
+                        objects[objVar].ObjectInfoMap[i] = val.Text;
                     }
                     else
                         objects[objVar].ObjectInfoMap[i] = val.Text;
 
                     if (i == 3)
-                        openGeistWin(objVar);
+                        openGeistWin(objVar, newLayer, numLine);
 
                     break;
                 }
@@ -843,11 +879,141 @@ namespace GeistStudio
                 );
             }
 
+            if (IsFuncName(val))
+            {
+                bool isClassFunc = false;
+                var args = new List<Token>();
+                Func func = GetOrCreate(funcs, val.Text);
+
+                if (IsClassName(parent) && !isConstructor)
+                {
+                    Token funcName = tokens[pos++];
+                    isClassFunc = true;
+                    func.AssignFrom(GetOrCreateClassFunc(parent, funcName.Text).Func);
+                }
+                else if (IsClassName(parent) && isConstructor)
+                {
+                    isClassFunc = true;
+                    func.AssignFrom(GetOrCreateClassFunc(parent, "constructor").Func);
+                }
+
+                if ((func.Parent != parent && func.Layer > Layer) || func.Layer > Layer)
+                {
+                    ThrowError("This function is not accessible in the current scope.", t, numLine);
+                    return -1;
+                }
+
+                Token lParen = tokens[pos++];
+                if (isConstructor) lParen = tokens[pos++];
+                if (lParen.Type != TokenType.LParen)
+                {
+                    ThrowError("Expected '(' after the function name.", lParen, numLine);
+                    return -1;
+                }
+
+                Token p = tokens[pos++];
+                while (p.Type != TokenType.LParen &&
+                       p.Type != TokenType.RParen &&
+                       p.Type != TokenType.LBrace &&
+                       p.Type != TokenType.RBrace)
+                {
+                    Token arg = p;
+                    if (arg.Type != TokenType.Comma)
+                    {
+                        if (IsTokenType(arg) &&
+                            arg.Type != TokenType.Number &&
+                            arg.Type != TokenType.StringLiteral)
+                        {
+                            ThrowError("The variable name is invalid.", arg, numLine);
+                            return -1;
+                        }
+                        args.Add(arg);
+                    }
+                    p = tokens[pos++];
+                }
+                pos--;
+
+                Token rParen = tokens[pos++];
+                if (rParen.Type != TokenType.RParen)
+                {
+                    ThrowError("Expected ')' to close the function arguments.", rParen, numLine);
+                    return -1;
+                }
+
+                if (args.Count != func.Params.Count)
+                {
+                    ThrowError("The function was called with the wrong number of arguments.", new Token(TokenType.End, func.Name), numLine);
+                    return -1;
+                }
+
+
+
+                for (int i = 0; i < args.Count; i++)
+                {
+                    Token arg = args[i];
+                    bool isConst = false;
+                    string varStr = "";
+                    long varNum = 0;
+
+                    if (!IsVarName(arg) &&
+                        arg.Type != TokenType.StringLiteral &&
+                        arg.Type != TokenType.Number)
+                    {
+                        ThrowError("One or more arguments are invalid or undefined.", args[i], numLine);
+                        return -1;
+                    }
+                    else if (arg.Type == TokenType.Identifier || IsVarName(arg))
+                    {
+                        var v = GetOrCreate(vars, arg.Text);
+                        if ((v.Parent != parent && v.Layer > Layer) || v.Layer > Layer)
+                        {
+                            ThrowError("This variable is not accessible in the current scope.", arg, numLine);
+                            return -1;
+                        }
+                        isConst = v.IsConst;
+
+                        if (v.IsString) varStr = v.Str;
+                        else varNum = v.Number;
+                    }
+                    else if (arg.Type == TokenType.StringLiteral)
+                    {
+                        varStr = arg.Text;
+                    }
+                    else if (arg.Type == TokenType.Number)
+                    {
+                        varNum = long.Parse(arg.Text);
+                    }
+
+                    if (!isClassFunc)
+                    {
+                        func.LocalVars[func.Params[i].Text] = Value.HandleVal(
+                            func.Name, 
+                            newLayer, 
+                            isConst, 
+                            varStr, 
+                            varNum
+                        );
+                    }
+                    else
+                    {
+                        var cv = GetOrCreateClassVar(parent, func.Params[i].Text);
+                        cv.Value = Value.HandleVal(
+                            func.Name, 
+                            newLayer, 
+                            isConst, 
+                            varStr, 
+                            varNum, 
+                            new Token(TokenType.Empty, parent)
+                        );
+                    }
+                }
+            }
+
             Token semi = tokens[pos++];
             if (semi.Type != TokenType.Semicolon)
             {
                 ThrowError("Expected ';' after the Object attribute assignment.", semi, numLine);
-                return pos;
+                return -1;
             }
 
             /*Terminal.WriteLine($"GeistObj.Type: {GeistObj.Type}");
@@ -879,7 +1045,7 @@ namespace GeistStudio
             if (lParen.Type != TokenType.LParen)
             {
                 ThrowError("Expected '(' after the function name.", lParen, numLine);
-                return pos;
+                return -1;
             }
 
             Object tmpObj = new Object();
@@ -897,7 +1063,7 @@ namespace GeistStudio
             if (v.Type == TokenType.Number)
             {
                 ThrowError($"The {t.Text} Name can't be a number.", v, numLine);
-                return pos + 1;
+                return -1;
             }
 
             if (v.Type == TokenType.StringLiteral)
@@ -923,7 +1089,7 @@ namespace GeistStudio
                 if ((var2.Parent != parent && var2.Layer > Layer) || var2.Layer > Layer)
                 {
                     ThrowError("This variable is not accessible in the current scope.", v, numLine);
-                    return pos;
+                    return -1;
                 }
 
 
@@ -931,7 +1097,7 @@ namespace GeistStudio
                 if (!var2.IsString)
                 {
                     ThrowError($"The {t.Text} Name can't be a number.", v, numLine);
-                    return pos + 1;
+                    return -1;
                 }
                 val = var2.Str;
             }
@@ -958,14 +1124,14 @@ namespace GeistStudio
             if (rParen.Type != TokenType.RParen)
             {
                 ThrowError("Expected ')' to close the function arguments.", rParen, numLine);
-                return pos;
+                return -1;
             }
 
             Token semi = tokens[pos++];
             if (semi.Type != TokenType.Semicolon && !isRetCall && caller == "print")
             {
                 ThrowError("Expected ';' after the function call.", semi, numLine);
-                return pos;
+                return -1;
             }
 
             return pos;
@@ -1009,7 +1175,7 @@ namespace GeistStudio
             if ((func.Parent != parent && func.Layer > Layer) || func.Layer > Layer)
             {
                 ThrowError("This function is not accessible in the current scope.", t, numLine);
-                return pos;
+                return -1;
             }
 
             Token lParen = tokens[pos++];
@@ -1017,7 +1183,7 @@ namespace GeistStudio
             if (lParen.Type != TokenType.LParen)
             {
                 ThrowError("Expected '(' after the function name.", lParen, numLine);
-                return pos;
+                return -1;
             }
 
             Token p = tokens[pos++];
@@ -1034,7 +1200,7 @@ namespace GeistStudio
                         arg.Type != TokenType.StringLiteral)
                     {
                         ThrowError("The variable name is invalid.", arg, numLine);
-                        return pos;
+                        return -1;
                     }
                     args.Add(arg);
                 }
@@ -1046,20 +1212,20 @@ namespace GeistStudio
             if (rParen.Type != TokenType.RParen)
             {
                 ThrowError("Expected ')' to close the function arguments.", rParen, numLine);
-                return pos;
+                return -1;
             }
 
             Token semi = tokens[pos++];
             if (semi.Type != TokenType.Semicolon && !isRetCall && caller == "print")
             {
                 ThrowError("Expected ';' after the function call.", semi, numLine);
-                return pos;
+                return -1;
             }
 
             if (args.Count != func.Params.Count)
             {
                 ThrowError("The function was called with the wrong number of arguments.", new Token(TokenType.End, func.Name), numLine);
-                return pos;
+                return -1;
             }
 
             for (int i = 0; i < args.Count; i++)
@@ -1074,7 +1240,7 @@ namespace GeistStudio
                     arg.Type != TokenType.Number)
                 {
                     ThrowError("One or more arguments are invalid or undefined.", args[i], numLine);
-                    return pos;
+                    return -1;
                 }
                 else if (arg.Type == TokenType.Identifier || IsVarName(arg))
                 {
@@ -1082,7 +1248,7 @@ namespace GeistStudio
                     if ((v.Parent != parent && v.Layer > Layer) || v.Layer > Layer)
                     {
                         ThrowError("This variable is not accessible in the current scope.", arg, numLine);
-                        return pos;
+                        return -1;
                     }
                     isConst = v.IsConst;
 
@@ -1112,7 +1278,7 @@ namespace GeistStudio
 
             ExecuteTokens(func.Body, func.Name, newLayer, numLine);
 
-            return pos;
+            return -1;
         }
 
         private Arithmetic GetReturn(
@@ -1741,14 +1907,14 @@ namespace GeistStudio
                 if (IsTokenType(name))
                 {
                     ThrowError("The variable name is invalid.", Combine(new List<Token> { tokens[pos - 2], tokens[pos - 1], tokens[pos] }), numLine);
-                    return pos;
+                    return -1;
                 }
             }
             else if ((IsVarName(t) && GetOrCreate(vars, t.Text).IsConst) ||
                      (IsLocalVarName(parent, t) && GetOrCreate(funcs, parent).LocalVars[t.Text].IsConst))
             {
                 ThrowError("Cannot modify the value of a constant.", Combine(new List<Token> { t, name }), numLine);
-                return pos;
+                return -1;
             }
             else if (IsClassVariable(parent, t) &&
                      t.Type != TokenType.Let && t.Type != TokenType.Const)
@@ -1757,7 +1923,7 @@ namespace GeistStudio
                 if (dot.Type != TokenType.Dot)
                 {
                     ThrowError("Expected '.' after the class name.", dot, numLine);
-                    return pos;
+                    return -1;
                 }
 
                 if (IsClassVariable(parent, t))
@@ -1769,7 +1935,7 @@ namespace GeistStudio
                 else
                 {
                     ThrowError("Expected a class Variable after the class name.", tokens[pos], numLine);
-                    return pos;
+                    return -1;
                 }
             }
             else
@@ -1807,7 +1973,7 @@ namespace GeistStudio
                     if (!IsClassName(className) && !isGeistObj(className))
                     {
                         ThrowError("Unknown class.", className, numLine);
-                        return pos;
+                        return -1;
                     }
 
                     
@@ -1932,7 +2098,7 @@ namespace GeistStudio
                     if (v.IsString)
                     {
                         ThrowError("Cannot " + opName + " a string value using '" + operation + "'.", name, numLine);
-                        return pos;
+                        return -1;
                     }
 
                     long val = v.Number;
@@ -1946,7 +2112,7 @@ namespace GeistStudio
                 else
                 {
                     ThrowError("Expected '++' or '--'. Both operators must match.", Combine(new List<Token> { op, next }), numLine);
-                    return pos;
+                    return -1;
                 }
             }
             else if (op.Type == TokenType.Plus ||
@@ -1961,7 +2127,7 @@ namespace GeistStudio
                 if (equal.Type != TokenType.Assign)
                 {
                     ThrowError("Expected '=' after the operator.", equal, numLine);
-                    return pos;
+                    return -1;
                 }
 
                 if (IsVarName(t))
@@ -1971,13 +2137,13 @@ namespace GeistStudio
                 else
                 {
                     ThrowError("The variable is not defined.", name, numLine);
-                    return pos;
+                    return -1;
                 }
 
                 if (v.IsString)
                 {
                     ThrowError("Cannot perform arithmetic operations on a string value.", name, numLine);
-                    return pos;
+                    return -1;
                 }
 
                 Arithmetic arithmetic = InitializeArithmetic(tokens, pos, parent, Layer, numLine, classOutName, name);
@@ -1996,7 +2162,7 @@ namespace GeistStudio
                     if (argVal == 0)
                     {
                         ThrowError("Division by zero is not allowed.", arithmetic.Val, numLine);
-                        return pos;
+                        return -1;
                     }
                     varNum = v.Number / argVal;
                 }
@@ -2005,7 +2171,7 @@ namespace GeistStudio
                     if (argVal == 0)
                     {
                         ThrowError("Modulo by zero is not allowed.", arithmetic.Val, numLine);
-                        return pos;
+                        return -1;
                     }
                     varNum = v.Number % argVal;
                 }
@@ -2013,7 +2179,7 @@ namespace GeistStudio
             else
             {
                 ThrowError("Expected '=' or '++' or '--' after the variable name.", op, numLine);
-                return pos;
+                return -1;
             }
 
             if (!IsClassName(parent))
@@ -2039,14 +2205,14 @@ namespace GeistStudio
             else
             {
                 ThrowError("This variable couldn't be saved", name, numLine);
-                return pos;
+                return -1;
             }
 
             Token semi2 = tokens[pos++];
             if (semi2.Type != TokenType.Semicolon)
             {
                 ThrowError("Unexpected Character6", semi2, numLine);
-                return pos;
+                return -1;
             }
 
             return pos;
@@ -2069,12 +2235,12 @@ namespace GeistStudio
             if (IsTokenType(name) && !isConstructor)
             {
                 ThrowError("The function name is invalid.", name, numLine);
-                return pos;
+                return -1;
             }
             else if (IsFuncName(name))
             {
                 ThrowError("A function with this name already exists.", name, numLine);
-                return pos;
+                return -1;
             }
 
             var parameters = new List<Token>();
@@ -2084,7 +2250,7 @@ namespace GeistStudio
             if (lParen.Type != TokenType.LParen)
             {
                 ThrowError("Expected '(' after the function name.", lParen, numLine);
-                return pos;
+                return -1;
             }
 
             Token p = tokens[pos++];
@@ -2099,7 +2265,7 @@ namespace GeistStudio
                     if (IsTokenType(arg))
                     {
                         ThrowError("This variable name is invalid", arg, numLine);
-                        return pos;
+                        return -1;
                     }
                     parameters.Add(arg);
                 }
@@ -2111,14 +2277,14 @@ namespace GeistStudio
             if (rParen.Type != TokenType.RParen)
             {
                 ThrowError("Expected ')' to close the function parameter list.", rParen, numLine);
-                return pos;
+                return -1;
             }
 
             Token lBrace = tokens[pos++];
             if (lBrace.Type != TokenType.LBrace)
             {
                 ThrowError("Expected '{' to begin the function body.", lBrace, numLine);
-                return pos;
+                return -1;
             }
 
             int braceDepth = 1;
@@ -2180,7 +2346,7 @@ namespace GeistStudio
                 if (t.Type == TokenType.End)
                     break;
             }
-
+            initialized = true;
             ExecuteTokens(tokens);
         }
 
@@ -2191,6 +2357,9 @@ namespace GeistStudio
 
             while (pos < tokens.Count)
             {
+                if (pos < 0 && initialized)
+                    return;
+
                 numLine++;
                 Token t = tokens[pos++];
                 if (t.Type == TokenType.End)

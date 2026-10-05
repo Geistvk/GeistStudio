@@ -352,7 +352,8 @@ namespace GeistStudio
             "width",
             "height",
             "x",
-            "y"
+            "y",
+            "padding"
         };
 
         public Dictionary<int, int> AttributeMap = new Dictionary<int, int>();
@@ -372,7 +373,7 @@ namespace GeistStudio
                 ObjectInfoMap = new Dictionary<int, string>(objectInfoMap);
 
             for (int i = 0; i < Titles.Length; i++)
-                AttributeMap[i] = -1;
+                AttributeMap[i] = i == 4 ? 10 : - 1;
         }
     }
 
@@ -598,7 +599,7 @@ namespace GeistStudio
             string output = "{\n";
 
             for (int i = 0; i < obj.ObjectInfo.Length; i++)
-                output += $"   {obj.ObjectInfo[i]}: {obj.ObjectInfoMap[i]}\n";
+                output += $"   {obj.ObjectInfo[i]}: \"{obj.ObjectInfoMap[i]}\"\n";
 
             for (int i = 0; i < obj.Titles.Length; i++)
                 output += $"   {obj.Titles[i]}: {obj.AttributeMap[i].ToString()}\n";
@@ -670,6 +671,7 @@ namespace GeistStudio
             int height  = obj.AttributeMap[1]   != -1 ? obj.AttributeMap[1] : win.Font.Height;
             int x       = obj.AttributeMap[2]   != -1 ? obj.AttributeMap[2] : (win.ClientSize.Width - width) / 2;
             int y       = obj.AttributeMap[3]   != -1 ? obj.AttributeMap[3] : (win.ClientSize.Height - height) / 2;
+            int padding = obj.AttributeMap[4]   != -1 ? obj.AttributeMap[4] / 4 : 10;
 
             Func<Control> create;
             if (ControlFactories.TryGetValue(obj.ObjectInfoMap[0], out create))
@@ -679,7 +681,7 @@ namespace GeistStudio
                 control.Text = text;
                 control.Name = name;
                 control.Location = new Point(x, y);
-                control.Size = new Size(width, height);
+                control.Size = new Size((width + padding), (height + padding)); 
                 win.Controls.Add(control);
             }
         }
@@ -717,7 +719,7 @@ namespace GeistStudio
                 if (objects[childVar] != null)
                 {
                     Object obj = objects[childVar];
-                    Terminal.WriteLine($"Var: {childVar} | Child {i}: {obj.ObjectInfoMap[2]} | Type: {obj.ObjectInfoMap[0]} | Text: {obj.ObjectInfoMap[5]}");
+                    //Terminal.WriteLine($"Var: {childVar} | Child {i}: {obj.ObjectInfoMap[2]} | Type: {obj.ObjectInfoMap[0]} | Text: {obj.ObjectInfoMap[5]}");
                     addChildToParent(geistObjWin, obj);
                 }
             }

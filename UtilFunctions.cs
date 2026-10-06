@@ -615,7 +615,10 @@ namespace GeistStudio
             };*/
 
             if (runCode)
+            {
                 terminal.Send(Terminal.Prompt + "script " + fileName, false);
+                terminal.toggleReadOnly();
+            }
 
             terminal.Open();
             Util.Notify(form, "Success", "New Terminal opened successfully");
@@ -632,6 +635,7 @@ namespace GeistStudio
             TabPage fileTmp = form.FileList.SelectedTab;
             String fileName = fileTmp.Text;
 
+            HandleFileAction(form, "save");
             OpenTerminal(form, true, fileName);
 
             //String result = cpp.Run("script " + fileName);
@@ -669,10 +673,7 @@ namespace GeistStudio
 
             if (ext != scriptExt)
             {
-                Console.Error.Write(
-                      type + ": Invalid file type for ("
-                    + fileName + "). Expected ."
-                    + scriptExt + "\n");
+                Util.Notify(form, "Error", "Invalid file type for " + fileName);
 
                 if (isOpen)
                     file.Close();
@@ -680,11 +681,7 @@ namespace GeistStudio
 
             if (!isOpen)
             {
-                Console.Error.Write(
-                      type + ": Cannot open "
-                    + fileName
-                    + " filename is invalid or file does not exist."
-                    + "\n");
+                Util.Notify(form, "Error", "Failed to open file " + fileName);
             }
 
             string line;
@@ -702,7 +699,6 @@ namespace GeistStudio
             file.Close();
 
             interp.Execute(script);
-            Terminal.WritePrompt();
         }
 
 

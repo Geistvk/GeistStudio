@@ -31,7 +31,7 @@ namespace GeistStudio
     public enum TokenType
     {
         End, Empty, NewLine, Number, StringLiteral, Identifier,
-        Window, Button, TextBox, Label,
+        Window, Button, TextBox, Label, Panel,
         Let, Const, Print, If, Else, While, For, Function, Return,
         Plus, Minus, Multiply, Divide, Modulo,
         Assign, Equal, NotEqual, And, Or, Not, String,
@@ -132,6 +132,7 @@ namespace GeistStudio
                         case "Button": return new Token(TokenType.Button, id);
                         case "TextBox": return new Token(TokenType.TextBox, id);
                         case "Label": return new Token(TokenType.Label, id);
+                        case "Panel": return new Token(TokenType.Panel, id);
                         default: return new Token(TokenType.Identifier, id);
                     }
                 }
@@ -343,7 +344,7 @@ namespace GeistStudio
             "type",
             "var",
             "name",
-            "show",
+            "show", 
             "add",
             "text",
             "onClick"
@@ -367,6 +368,7 @@ namespace GeistStudio
             [4] = " ",
             [5] = " "
         };
+        public Control obj;
 
         public Object(Dictionary<int, string> objectInfoMap = null)
         {
@@ -375,6 +377,8 @@ namespace GeistStudio
 
             for (int i = 0; i < Titles.Length; i++)
                 AttributeMap[i] = i == 4 ? 10 : - 1;
+
+            obj = new Control();
         }
     }
 
@@ -456,6 +460,7 @@ namespace GeistStudio
                     case TokenType.Button: return true;
                     case TokenType.TextBox: return true;
                     case TokenType.Label: return true;
+                    case TokenType.Panel: return true;
                 }
             }
             return false;
@@ -641,6 +646,28 @@ namespace GeistStudio
             return (s.ToLower() == "true" || s.ToLower() == "false");
         }
 
+        private void updateGeistObj(string objVar)
+        {
+            if (vars.ContainsKey(objVar))
+            {
+                Value old = vars[objVar];
+                vars[objVar] = Value.HandleVal(
+                    old.Parent,
+                    old.Layer,
+                    old.IsConst,
+                    formatGeistObjectData(
+                        new Token(
+                            TokenType.NewClass, 
+                            objVar
+                        )
+                    ),
+                    0L,
+                    old.ClassName,
+                    old.GeistObj
+                );
+            }
+        }
+
         private static readonly Dictionary<string, Func<Control>> ControlFactories =
             new Dictionary<string, Func<Control>>
             {
@@ -662,11 +689,17 @@ namespace GeistStudio
                 ["Label"] = () => new System.Windows.Forms.Label
                 {
                     ForeColor = Util.Config.Colors.Foreground.Text
+                },
+                ["Panel"] = () => new System.Windows.Forms.Panel 
+                {
+                    ForeColor = Util.Config.Colors.Foreground.Text
                 }
             };
 
-        private void addChildToParent(Form win, Object obj, int Layer, int numLine)
+        private void addChildToParent(Form win, string childVar, int Layer, int numLine)
         {
+            Object obj = objects[childVar];
+
             string name     = obj.ObjectInfoMap[2]  != "" ? obj.ObjectInfoMap[2] : obj.ObjectInfoMap[0];
             string text     = obj.ObjectInfoMap[5]  != "" ? obj.ObjectInfoMap[5] : obj.ObjectInfoMap[2];
             string onClick  = obj.ObjectInfoMap[6]  != "" ? obj.ObjectInfoMap[6] : null;
@@ -689,11 +722,14 @@ namespace GeistStudio
                 if (onClick != null)
                 {
                     Func func = GetOrCreate(funcs, onClick);
-
-                    control.Click += (sender, e) => ExecuteTokens(func.Body, func.Name, Layer, numLine);
+                    control.Click += (sender, e) => ExecuteTokens(func.Body, func.Name, Layer, numLine); 
                 }
 
                 win.Controls.Add(control);
+                objects[childVar].ObjectInfoMap[3] = "true";
+                objects[childVar].obj = control;
+
+                updateGeistObj(childVar);
             }
         }
 
@@ -727,18 +763,15 @@ namespace GeistStudio
             geistObjWin.Location = new Point(winX, winY);
             geistObjWin.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 
+            objects[var].obj = geistObjWin;
+
             Util.CreateCustomTitleBar(geistObjWin, winTitle);
 
             for (int i = 0; i < childs.Length; i++) 
-            {
-                string childVar = childs[i];
-                if (objects[childVar] != null)
-                {
-                    Object obj = objects[childVar];
-                    //Terminal.WriteLine($"Var: {childVar} | Child {i}: {obj.ObjectInfoMap[2]} | Type: {obj.ObjectInfoMap[0]} | Text: {obj.ObjectInfoMap[5]}");
-                    addChildToParent(geistObjWin, obj, Layer, numLine);
-                }
-            }
+                if (objects[childs[i]] != null)
+                    addChildToParent(geistObjWin, childs[i], Layer, numLine);
+
+            updateGeistObj(var);
 
             geistObjWin.Show();
             geistObjWin.BringToFront();
@@ -824,6 +857,20 @@ namespace GeistStudio
                 }
             }
 
+
+            /*
+            public string[] ObjectInfo = new string[] 
+            { 
+                "type",
+                "var",
+                "name",
+                "show", 
+                "add",
+                "text",
+                "onClick"
+            };
+            */
+
             for (int i = 0; i < objects[objVar].ObjectInfo.Length; i++)
             {
                 if (objects[objVar].ObjectInfo[i] == Attribute.Text && objects[objVar] != null)
@@ -852,11 +899,13 @@ namespace GeistStudio
                             ThrowError($"Expected a function name as the {Attribute.Text} Attribute of the Object.", val, numLine);
                             return -1;
                         }
-
                         objects[objVar].ObjectInfoMap[i] = val.Text;
                     }
                     else
                         objects[objVar].ObjectInfoMap[i] = val.Text;
+
+                    if (i == 5)
+                        objects[objVar].obj.Text = val.Text;
 
                     if (i == 3)
                         openGeistWin(objVar, newLayer, numLine);
@@ -865,20 +914,9 @@ namespace GeistStudio
                 }
             }
 
-            if (vars.ContainsKey(objVar))
-            {
-                Value old = vars[objVar];
-                vars[objVar] = Value.HandleVal(
-                    old.Parent,
-                    old.Layer,
-                    old.IsConst,
-                    formatGeistObjectData(t),
-                    0L,
-                    old.ClassName,
-                    old.GeistObj
-                );
-            }
+            updateGeistObj(objVar);
 
+            //If Attribute is a Function Name
             if (IsFuncName(val))
             {
                 bool isClassFunc = false;

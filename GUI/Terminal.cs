@@ -40,7 +40,7 @@ namespace GeistStudio
     public partial class Terminal : Form
     {
         public GeistStudioWin form;
-        private static RichTextBox console;
+        public static RichTextBox console;
         private static int inputStart;
 
         public static string Prompt { get; set; } = "root@GeistOS:/$ ";
@@ -213,6 +213,12 @@ namespace GeistStudio
             if (e.KeyCode == Keys.Enter)
             {
                 e.SuppressKeyPress = true;
+                if (console.ReadOnly)
+                {
+                    WritePrompt();
+                    console.ReadOnly = false;
+                    return;
+                }
 
                 string line = console.Text.Substring(inputStart).Trim();
                 console.AppendText(Environment.NewLine);
@@ -262,6 +268,11 @@ namespace GeistStudio
                 console.ReadOnly = true;
                 CommandEntered?.Invoke(line);
             }
+        }
+
+        public void toggleReadOnly()
+        {
+            console.ReadOnly = !console.ReadOnly;
         }
 
         private void Console_KeyPress(object sender, KeyPressEventArgs e)

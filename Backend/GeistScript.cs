@@ -338,6 +338,32 @@ namespace GeistStudio
         }
     }
 
+    public class geistString
+    {
+        public int type = 0;
+        public int var = 1;
+        public int name = 2;
+        public int show = 3;
+        public int add = 4;
+        public int text = 5;
+        public int onClick = 6;
+    }
+
+    public class geistInt
+    {
+        public int width = 0;
+        public int height = 1;
+        public int x = 2;
+        public int y = 3;
+        public int padding = 4;
+    }
+
+    public static class geistObj
+    {
+        public static geistString str = new geistString();
+        public static geistInt num = new geistInt();
+    }
+
     public class Object {
         public string[] ObjectInfo = new string[] 
         { 
@@ -368,6 +394,7 @@ namespace GeistStudio
             [4] = " ",
             [5] = " "
         };
+        public bool hasObject = false;
         public Control obj;
 
         public Object(Dictionary<int, string> objectInfoMap = null)
@@ -700,17 +727,17 @@ namespace GeistStudio
         {
             Object obj = objects[childVar];
 
-            string name     = obj.ObjectInfoMap[2]  != "" ? obj.ObjectInfoMap[2] : obj.ObjectInfoMap[0];
-            string text     = obj.ObjectInfoMap[5]  != "" ? obj.ObjectInfoMap[5] : obj.ObjectInfoMap[2];
-            string onClick  = obj.ObjectInfoMap[6]  != "" ? obj.ObjectInfoMap[6] : null;
-            int width       = obj.AttributeMap[0]   != -1 ? obj.AttributeMap[0] : TextRenderer.MeasureText(text, win.Font).Width;
-            int height      = obj.AttributeMap[1]   != -1 ? obj.AttributeMap[1] : win.Font.Height;
-            int x           = obj.AttributeMap[2]   != -1 ? obj.AttributeMap[2] : (win.ClientSize.Width - width) / 2;
-            int y           = obj.AttributeMap[3]   != -1 ? obj.AttributeMap[3] : (win.ClientSize.Height - height) / 2;
-            int padding     = obj.AttributeMap[4]   != -1 ? obj.AttributeMap[4] / 4 : 10; 
+            string name     = obj.ObjectInfoMap[geistObj.str.name]      != "" ? obj.ObjectInfoMap[geistObj.str.name]        : obj.ObjectInfoMap[geistObj.str.type];
+            string text     = obj.ObjectInfoMap[geistObj.str.text]      != "" ? obj.ObjectInfoMap[geistObj.str.text]        : obj.ObjectInfoMap[geistObj.str.name];
+            string onClick  = obj.ObjectInfoMap[geistObj.str.onClick]   != "" ? obj.ObjectInfoMap[geistObj.str.onClick]     : null;
+            int width       = obj.AttributeMap[geistObj.num.width]      != -1 ? obj.AttributeMap[geistObj.num.width]        : TextRenderer.MeasureText(text, win.Font).Width;
+            int height      = obj.AttributeMap[geistObj.num.height]     != -1 ? obj.AttributeMap[geistObj.num.height]       : win.Font.Height;
+            int x           = obj.AttributeMap[geistObj.num.x]          != -1 ? obj.AttributeMap[geistObj.num.x]            : (win.ClientSize.Width - width) / 2;
+            int y           = obj.AttributeMap[geistObj.num.y]          != -1 ? obj.AttributeMap[geistObj.num.y]            : (win.ClientSize.Height - height) / 2;
+            int padding     = obj.AttributeMap[geistObj.num.padding]    != -1 ? obj.AttributeMap[geistObj.num.padding] / 4  : 10; 
 
             Func<Control> create;
-            if (ControlFactories.TryGetValue(obj.ObjectInfoMap[0], out create))
+            if (ControlFactories.TryGetValue(obj.ObjectInfoMap[geistObj.str.type], out create))
             {
                 Control control = create();
                 control.Font = win.Font;
@@ -726,8 +753,9 @@ namespace GeistStudio
                 }
 
                 win.Controls.Add(control);
-                objects[childVar].ObjectInfoMap[3] = "true";
+                objects[childVar].ObjectInfoMap[geistObj.str.show] = "true";
                 objects[childVar].obj = control;
+                objects[childVar].hasObject = true;
 
                 updateGeistObj(childVar);
             }
@@ -746,17 +774,18 @@ namespace GeistStudio
                 return;
 
             // Load all the Values
-            string winTitle     = GeistObj.ObjectInfoMap[2];
-            int winWidth        = GeistObj.AttributeMap[0] != -1 ? GeistObj.AttributeMap[0] : 800;
-            int winHeight       = GeistObj.AttributeMap[1] != -1 ? GeistObj.AttributeMap[1] : 500;
-            int winX            = GeistObj.AttributeMap[2] != -1 ? GeistObj.AttributeMap[2] : (Screen.PrimaryScreen.WorkingArea.Width  - winWidth)  / 2;
-            int winY            = GeistObj.AttributeMap[3] != -1 ? GeistObj.AttributeMap[3] : (Screen.PrimaryScreen.WorkingArea.Height - winHeight) / 2;
-            string[] childs     = GeistObj.ObjectInfoMap[4].Trim().Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            string winTitle     = GeistObj.ObjectInfoMap[geistObj.str.text]     != "" ? GeistObj.ObjectInfoMap[geistObj.str.text] : GeistObj.ObjectInfoMap[geistObj.str.var];
+            string winName      = GeistObj.ObjectInfoMap[geistObj.str.name]     != "" ? GeistObj.ObjectInfoMap[geistObj.str.name] : winTitle;
+            int winWidth        = GeistObj.AttributeMap[geistObj.num.width]     != -1 ? GeistObj.AttributeMap[geistObj.num.width] : 800;
+            int winHeight       = GeistObj.AttributeMap[geistObj.num.height]    != -1 ? GeistObj.AttributeMap[geistObj.num.height] : 500;
+            int winX            = GeistObj.AttributeMap[geistObj.num.x]         != -1 ? GeistObj.AttributeMap[geistObj.num.x] : (Screen.PrimaryScreen.WorkingArea.Width  - winWidth)  / 2;
+            int winY            = GeistObj.AttributeMap[geistObj.num.y]         != -1 ? GeistObj.AttributeMap[geistObj.num.y] : (Screen.PrimaryScreen.WorkingArea.Height - winHeight) / 2;
+            string[] childs     = GeistObj.ObjectInfoMap[geistObj.str.add].Trim().Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             Form geistObjWin    = new Form();
 
 
-            geistObjWin.Text = winTitle;
-            geistObjWin.Name = winTitle;
+            geistObjWin.Text = winName;
+            geistObjWin.Name = winName;
             geistObjWin.Size = new Size(winWidth, winHeight);
             geistObjWin.BackColor = Util.Config.Colors.Background.BackgroundDark;
             geistObjWin.StartPosition = FormStartPosition.Manual;
@@ -764,6 +793,7 @@ namespace GeistStudio
             geistObjWin.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 
             objects[var].obj = geistObjWin;
+            objects[var].hasObject = true;
 
             Util.CreateCustomTitleBar(geistObjWin, winTitle);
 
@@ -791,7 +821,7 @@ namespace GeistStudio
         {
             int newLayer = Layer + 1;
             Object GeistObj = getObjectData(t.Text);
-            string objVar = GeistObj != null ? GeistObj.ObjectInfoMap[1] : null;
+            string objVar = GeistObj != null ? GeistObj.ObjectInfoMap[geistObj.str.var] : null;
             Dictionary<int, int> attributeMap = new Dictionary<int, int>();
 
             Token dot = tokens[pos++];
@@ -837,7 +867,7 @@ namespace GeistStudio
                 ThrowError($"Expected a positive integer as the {Attribute.Text} Attribute of the Object.", val, numLine);
                 return -1;
             }
-            if (Attribute.Equals(objects[objVar].ObjectInfo[3]) &&
+            if (Attribute.Equals(objects[objVar].ObjectInfo[geistObj.str.show]) &&
                 !isBoolObjInfo(val.Text))
             {
                 ThrowError($"Expected a Boolean as the {Attribute.Text} Attribute of the Object.", val, numLine);
@@ -853,6 +883,23 @@ namespace GeistStudio
                         return -1;
                     }
                     objects[objVar].AttributeMap[i] = int.Parse(val.Text);
+
+                    if (objects[objVar].hasObject)
+                    {
+                        int v = int.Parse(val.Text);
+
+                        if (i == geistObj.num.width)
+                            objects[objVar].obj.Width = v;
+                        else if (i == geistObj.num.height)
+                            objects[objVar].obj.Height = v;
+                        else if (i == geistObj.num.x)
+                            objects[objVar].obj.Left = v;
+                        else if (i == geistObj.num.y)
+                            objects[objVar].obj.Top = v;
+                        else if (i == geistObj.num.padding)
+                            objects[objVar].obj.Padding = new Padding(v / 4);
+                    }
+
                     break;
                 }
             }
@@ -875,8 +922,8 @@ namespace GeistStudio
             {
                 if (objects[objVar].ObjectInfo[i] == Attribute.Text && objects[objVar] != null)
                 {
-                    if (objects[objVar].ObjectInfo[4] == Attribute.Text &&
-                        i == 4 && objects[objVar].ObjectInfo[i] != null &&
+                    if (objects[objVar].ObjectInfo[geistObj.str.add] == Attribute.Text &&
+                        i == geistObj.str.add && objects[objVar].ObjectInfo[i] != null &&
                         objects[objVar].ObjectInfo[i] != " ")
                     {
                         if (objects[val.Text].ObjectInfoMap[0] == "Window")
@@ -892,11 +939,11 @@ namespace GeistStudio
                         //objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
                         objects[objVar].ObjectInfoMap[i] += $"{val.Text},";
                     }
-                    else if (objects[objVar].ObjectInfo[6] == Attribute.Text && 
-                            i == 6) 
+                    else if (objects[objVar].ObjectInfo[geistObj.str.onClick] == Attribute.Text && 
+                            i == geistObj.str.onClick) 
                     {
                         if (!IsFuncName(val)) {
-                            ThrowError($"Expected a function name as the {Attribute.Text} Attribute of the Object.", val, numLine);
+                            ThrowError($"Expected a function name as the {Attribute.Text} Attribute of the Object.", val, numLine); 
                             return -1;
                         }
                         objects[objVar].ObjectInfoMap[i] = val.Text;
@@ -904,10 +951,23 @@ namespace GeistStudio
                     else
                         objects[objVar].ObjectInfoMap[i] = val.Text;
 
-                    if (i == 5)
-                        objects[objVar].obj.Text = val.Text;
+                    if (objects[objVar].hasObject)
+                    {
+                        if (i == geistObj.str.text)
+                            objects[objVar].obj.Text = val.Text;
+                        else if (i == geistObj.str.name)
+                            objects[objVar].obj.Name = val.Text;
+                        else if (i == geistObj.str.show)
+                            objects[objVar].obj.Visible = val.Text.ToLower() == "true";
+                        else if (i == geistObj.str.add)
+                        {
+                            string[] childs = val.Text.Trim().Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (string child in childs)
+                                addChildToParent((Form)objects[objVar].obj, child, newLayer, numLine);
+                        }
+                    }
 
-                    if (i == 3)
+                    if (i == geistObj.str.show)
                         openGeistWin(objVar, newLayer, numLine);
 
                     break;

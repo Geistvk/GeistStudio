@@ -387,12 +387,12 @@ namespace GeistStudio
         public Dictionary<int, int> AttributeMap = new Dictionary<int, int>();
         public Dictionary<int, string> ObjectInfoMap = new Dictionary<int, string>()
         {
-            [0] = " ",
-            [1] = " ",
-            [2] = " ",
+            [0] = "",
+            [1] = "",
+            [2] = "",
             [3] = "false",
-            [4] = " ",
-            [5] = " "
+            [4] = "",
+            [5] = ""
         };
         public bool hasObject = false;
         public Control obj;
@@ -673,6 +673,13 @@ namespace GeistStudio
             return (s.ToLower() == "true" || s.ToLower() == "false");
         }
 
+        private bool isAddedToGeistObj(string var) {
+            for (int i = 0; i < objects.Count; i++)
+                if (objects.ElementAt(i).Value.ObjectInfoMap[geistObj.str.add].Contains(var))
+                    return true;
+            return false;
+        }
+
         private void updateGeistObj(string objVar)
         {
             if (vars.ContainsKey(objVar))
@@ -749,7 +756,7 @@ namespace GeistStudio
                 if (onClick != null)
                 {
                     Func func = GetOrCreate(funcs, onClick);
-                    control.Click += (sender, e) => ExecuteTokens(func.Body, func.Name, Layer, numLine); 
+                    control.Click += (sender, e) => ExecuteTokens(func.Body, func.Name, Layer, numLine);
                 }
 
                 win.Controls.Add(control);
@@ -770,7 +777,8 @@ namespace GeistStudio
         {
             Object GeistObj = getObjectData(var);
 
-            if (GeistObj.ObjectInfoMap[0] != "Window")
+            if (GeistObj.ObjectInfoMap[geistObj.str.type] != "Window" &&
+                GeistObj.ObjectInfoMap[geistObj.str.type] != "Panel")
                 return;
 
             // Load all the Values
@@ -904,20 +912,6 @@ namespace GeistStudio
                 }
             }
 
-
-            /*
-            public string[] ObjectInfo = new string[] 
-            { 
-                "type",
-                "var",
-                "name",
-                "show", 
-                "add",
-                "text",
-                "onClick"
-            };
-            */
-
             for (int i = 0; i < objects[objVar].ObjectInfo.Length; i++)
             {
                 if (objects[objVar].ObjectInfo[i] == Attribute.Text && objects[objVar] != null)
@@ -936,8 +930,13 @@ namespace GeistStudio
                             ThrowError($"Cannot assign a object to itself.", val, numLine);
                             return -1;
                         }
-                        //objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
-                        objects[objVar].ObjectInfoMap[i] += $"{val.Text},";
+                        if (isAddedToGeistObj(val.Text))
+                        {
+                            ThrowError($"Cannot assign a object that is already added to another object.", val, numLine);
+                            return -1;
+                        }
+                        objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
+                        //objects[objVar].ObjectInfoMap[i] += $"{val.Text},";
                     }
                     else if (objects[objVar].ObjectInfo[geistObj.str.onClick] == Attribute.Text && 
                             i == geistObj.str.onClick) 

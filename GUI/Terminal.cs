@@ -43,6 +43,8 @@ namespace GeistStudio
         public static RichTextBox console;
         private static int inputStart;
 
+        public static bool isInitialized = false;
+
         public static string Prompt { get; set; } = "root@GeistOS:/$ ";
         public event Action<string> CommandEntered;
 
@@ -305,16 +307,24 @@ namespace GeistStudio
             console.AppendText(Environment.NewLine);
         }
 
-        public void Send(string text, Boolean nextPrompt = true)
+        public void Send(string text, bool nextPrompt = true)
         {
-            if (InvokeRequired)
+            if (form != null && form.InvokeRequired)
             {
-                Invoke(new Action<string, Boolean>(Send), text, nextPrompt);
+                form.Invoke(new Action<string, bool>(Send), text, nextPrompt);
                 return;
             }
 
             if (!string.IsNullOrEmpty(text))
+            {
+                if (isInitialized)
+                    form.FileList.SelectedTab.Controls.Remove(console);
+
                 console.AppendText(text);
+
+                if (isInitialized)
+                    form.FileList.SelectedTab.Controls.Add(console);
+            }
 
             console.AppendText(Environment.NewLine);
 

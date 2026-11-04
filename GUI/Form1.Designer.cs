@@ -1250,20 +1250,27 @@ namespace GeistStudio
                 if (closeButton.Contains(e.Location))
                 {
                     TabPage page = FileList.TabPages[i];
-                    DialogResult result = ShowSaveDialog();
-
-                    if (result == DialogResult.Yes)
+                    
+                    if (tabEditors.ContainsKey(page)) //is Opened File
                     {
-                        SaveTabFile(page);
+                        DialogResult result = ShowSaveDialog();
+
+                        if (result == DialogResult.Yes)
+                            SaveTabFile(page);
+
+                        if (result != DialogResult.Cancel)
+                        {
+                            FileList.TabPages.Remove(page);
+                            page.Dispose();
+                        }
                     }
-
-
-                    if (result != DialogResult.Cancel)
+                    else //is other Tab
                     {
                         FileList.TabPages.Remove(page);
                         page.Dispose();
                     }
-
+                     
+                    FileList.SelectedTab = FileList.TabPages[FileList.TabPages.Count - 1];
 
                     break;
                 }

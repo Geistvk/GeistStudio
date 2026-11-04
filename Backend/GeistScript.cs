@@ -394,6 +394,7 @@ namespace GeistStudio
             [4] = "",
             [5] = ""
         };
+        public int objectId = 0;
         public bool hasObject = false;
         public Control obj;
 
@@ -597,21 +598,22 @@ namespace GeistStudio
             Dictionary<int, string> geistObjMap,
             Dictionary<int, int> attributeMap = null)
         {
-            if (objects.ContainsKey(geistObjMap[1]))
+            if (objects.ContainsKey(geistObjMap[geistObj.str.var]))
             {
                 if (geistObjMap != null)
-                    objects[geistObjMap[1]].ObjectInfoMap = geistObjMap;
+                    objects[geistObjMap[geistObj.str.var]].ObjectInfoMap = geistObjMap;
 
                 if (attributeMap != null)
-                    objects[geistObjMap[1]].AttributeMap = attributeMap;
+                    objects[geistObjMap[geistObj.str.var]].AttributeMap = attributeMap;
 
                 return;
             }
 
-            objects[geistObjMap[1]] = new Object(geistObjMap);
+            objects[geistObjMap[geistObj.str.var]] = new Object(geistObjMap);
+            objects[geistObjMap[geistObj.str.var]].objectId = objects.Count - 1;
 
             if (attributeMap != null)
-                objects[geistObjMap[1]].AttributeMap = attributeMap;
+                objects[geistObjMap[geistObj.str.var]].AttributeMap = attributeMap;
         }
 
         private Object getObjectData(string var) 
@@ -631,6 +633,7 @@ namespace GeistStudio
                 return "None";
 
             string output = "{\n";
+            output += $"   ObjectId: {obj.objectId}\n";
 
             for (int i = 0; i < obj.ObjectInfo.Length; i++)
                 output += $"   {obj.ObjectInfo[i]}: \"{obj.ObjectInfoMap[i]}\"\n";
@@ -726,7 +729,8 @@ namespace GeistStudio
                 },
                 ["Panel"] = () => new System.Windows.Forms.Panel 
                 {
-                    ForeColor = Util.Config.Colors.Foreground.Text
+                    ForeColor = Util.Config.Colors.Foreground.Text,
+                    BackColor = Util.Config.Colors.Background.Button
                 }
             };
 
@@ -751,7 +755,7 @@ namespace GeistStudio
                 control.Text = text;
                 control.Name = name;
                 control.Location = new Point(x, y);
-                control.Size = new Size((width + padding), (height + padding));
+                control.Size = new Size((width + padding), (height + padding)); 
 
                 if (onClick != null)
                 {
@@ -784,7 +788,7 @@ namespace GeistStudio
             // Load all the Values
             string winTitle     = GeistObj.ObjectInfoMap[geistObj.str.text]     != "" ? GeistObj.ObjectInfoMap[geistObj.str.text] : GeistObj.ObjectInfoMap[geistObj.str.var];
             string winName      = GeistObj.ObjectInfoMap[geistObj.str.name]     != "" ? GeistObj.ObjectInfoMap[geistObj.str.name] : winTitle;
-            int winWidth        = GeistObj.AttributeMap[geistObj.num.width]     != -1 ? GeistObj.AttributeMap[geistObj.num.width] : 800;
+            int winWidth        = GeistObj.AttributeMap[geistObj.num.width]     != -1 ? GeistObj.AttributeMap[geistObj.num.width] : 800; 
             int winHeight       = GeistObj.AttributeMap[geistObj.num.height]    != -1 ? GeistObj.AttributeMap[geistObj.num.height] : 500;
             int winX            = GeistObj.AttributeMap[geistObj.num.x]         != -1 ? GeistObj.AttributeMap[geistObj.num.x] : (Screen.PrimaryScreen.WorkingArea.Width  - winWidth)  / 2;
             int winY            = GeistObj.AttributeMap[geistObj.num.y]         != -1 ? GeistObj.AttributeMap[geistObj.num.y] : (Screen.PrimaryScreen.WorkingArea.Height - winHeight) / 2;
@@ -905,7 +909,7 @@ namespace GeistStudio
                         else if (i == geistObj.num.y)
                             objects[objVar].obj.Top = v;
                         else if (i == geistObj.num.padding)
-                            objects[objVar].obj.Padding = new Padding(v / 4);
+                            objects[objVar].obj.Padding = new Padding(v / 4); 
                     }
 
                     break;
@@ -920,12 +924,12 @@ namespace GeistStudio
                         i == geistObj.str.add && objects[objVar].ObjectInfo[i] != null &&
                         objects[objVar].ObjectInfo[i] != " ")
                     {
-                        if (objects[val.Text].ObjectInfoMap[0] == "Window")
+                        if (objects[val.Text].ObjectInfoMap[geistObj.str.type] == "Window")
                         {
                             ThrowError($"Cannot assign a Window object to another Window object.", val, numLine);
                             return -1;
                         }
-                        if (t.Text.Equals(val.Text))
+                        if (t.Text.Equals(val.Text) || objects[val.Text].objectId == objects[t.Text].objectId)
                         {
                             ThrowError($"Cannot assign a object to itself.", val, numLine);
                             return -1;
@@ -938,17 +942,17 @@ namespace GeistStudio
                         objects[objVar].ObjectInfoMap[i] = objects[objVar].ObjectInfoMap[i] == " " ? val.Text : objects[objVar].ObjectInfoMap[i] + $",{val.Text}";
                         //objects[objVar].ObjectInfoMap[i] += $"{val.Text},";
                     }
-                    else if (objects[objVar].ObjectInfo[geistObj.str.onClick] == Attribute.Text && 
-                            i == geistObj.str.onClick) 
+                    else
                     {
-                        if (!IsFuncName(val)) {
-                            ThrowError($"Expected a function name as the {Attribute.Text} Attribute of the Object.", val, numLine); 
+                        if (!IsFuncName(val) && 
+                            objects[objVar].ObjectInfo[geistObj.str.onClick] == Attribute.Text &&
+                            i == geistObj.str.onClick)
+                        {
+                            ThrowError($"Expected a function name as the {Attribute.Text} Attribute of the Object.", val, numLine);
                             return -1;
                         }
                         objects[objVar].ObjectInfoMap[i] = val.Text;
                     }
-                    else
-                        objects[objVar].ObjectInfoMap[i] = val.Text;
 
                     if (objects[objVar].hasObject)
                     {
@@ -957,7 +961,7 @@ namespace GeistStudio
                         else if (i == geistObj.str.name)
                             objects[objVar].obj.Name = val.Text;
                         else if (i == geistObj.str.show)
-                            objects[objVar].obj.Visible = val.Text.ToLower() == "true";
+                            objects[objVar].obj.Visible = val.Text.ToLower() == "true"; 
                         else if (i == geistObj.str.add)
                         {
                             string[] childs = val.Text.Trim().Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1131,7 +1135,6 @@ namespace GeistStudio
             bool isConstructor = false)
         {
             //Comming Soon
-            //Implementation of for "let var = new Window("Title");"
 
             //Terminal.Write($"Creating Geist object: {t.Text}\n");
             pos++;
@@ -1375,7 +1378,7 @@ namespace GeistStudio
 
             ExecuteTokens(func.Body, func.Name, newLayer, numLine);
 
-            return -1;
+            return pos;
         }
 
         private Arithmetic GetReturn(
@@ -1392,6 +1395,12 @@ namespace GeistStudio
             if (IsFuncName(t))
             {
                 newPos = ExecuteFunction(t, Layer, parent, numLine, tokens, pos, caller, isRetCall);
+
+                if (newPos < 0)
+                {
+                    ThrowError("The function call failed.", t, numLine);
+                    return new Arithmetic { Val = new Token(TokenType.End, ""), NewPos = newPos };
+                }
 
                 var func = GetOrCreate(funcs, t.Text);
                 if (func.HasReturned)
@@ -1675,6 +1684,8 @@ namespace GeistStudio
             Token className = null,
             Token varName = null)
         {
+            if (pos >= tokens.Count || pos < 0)
+                return new Arithmetic { Val = new Token(TokenType.Empty, "null"), NewPos = pos };
             if (className == null) className = new Token(TokenType.Empty, "root");
             if (varName == null) varName = new Token(TokenType.Empty, "");
 

@@ -499,6 +499,18 @@ namespace GeistStudio
             };
         }
 
+        public static void addTabPage(GeistStudioWin form, string tabName, Control content)
+        {
+            form.FileList.Invalidate(false);
+            TabPage page = new TabPage(tabName);
+            page.Name = tabName;
+            page.Controls.Add(content);
+            form.FileList.TabPages.Add(page);
+            form.FileList.SelectedTab = page;
+            form.FileList.PerformLayout();
+            form.FileList.Invalidate(true);
+        }
+
         public static void wait(int milliseconds)
         {
             var timer1 = new System.Windows.Forms.Timer();
@@ -571,7 +583,7 @@ namespace GeistStudio
             {
                 string result = null;
 
-                terminal.Invoke((Action)(() =>
+                terminal.form.Invoke((Action)(() =>
                 {
                     using (var dlg = new MaskedInputDialog(prompt))
                     {
@@ -616,11 +628,102 @@ namespace GeistStudio
 
             if (runCode)
             {
-                terminal.Send(Terminal.Prompt + "script " + fileName, false);
+                Dictionary<string, object> root = (Dictionary<string, object>)JsonParser.LoadEmbeddedJson("GeistStudio.GeistStudioData.json");
+                Dictionary<string, object> config = (Dictionary<string, object>)root["Config"];
+                Dictionary<string, object> settings = (Dictionary<string, object>)config["Settings"];
+                string executeTerminalCode = (string)settings["TerminalRunCode"];
+                string[] execudeCmd = executeTerminalCode.Split(' ');
+                string cmd = "";
+
+                foreach (string execCmd in execudeCmd)
+                {
+                    if (execCmd[0] != '%')
+                        cmd += execCmd + " ";
+                    else if (execCmd[0] == '%') 
+                    {
+                        string cmdSuffix = "";
+                        for (int i = 1; i < execCmd.Length; i++)
+                            if (execCmd[i] != '%')
+                                cmdSuffix += execCmd[i];
+
+                        if (cmdSuffix == "fileName")
+                            cmd += fileName + " ";
+                    }
+                }
+
+                terminal.Send(Terminal.Prompt + cmd, false);
                 terminal.toggleReadOnly();
+
+
+
+                if (execudeCmd[0] == "script")
+                {
+                    string scriptExt = "gsScript";
+
+                    var interp = new Interpreter();
+                    string script = "";
+                    int numLine = 0;
+
+                    if (fileName == "--example" || fileName == "-e")
+                    {
+                        interp.DownloadExample();
+                        return;
+                    }
+
+                    StreamReader file = null;
+                    bool isOpen = false;
+
+                    try
+                    {
+                        file = new StreamReader(fileName);
+                        isOpen = true;
+                    }
+                    catch
+                    {
+                        isOpen = false;
+                    }
+
+                    int dotIndex = fileName.LastIndexOf('.');
+                    string ext = dotIndex >= 0 ? fileName.Substring(dotIndex + 1) : fileName;
+
+                    if (ext != scriptExt)
+                    {
+                        Util.Notify(form, "Error", "Invalid file type for " + fileName);
+
+                        if (isOpen)
+                            file.Close();
+                    }
+
+                    if (!isOpen)
+                    {
+                        Util.Notify(form, "Error", "Failed to open file " + fileName);
+                    }
+
+                    string line;
+                    int lineNumber = 1;
+                    _ = lineNumber; // kept for parity with the original (void)lineNumber;
+
+                    while ((line = file.ReadLine()) != null)
+                    {
+                        interp.GeistScriptCode.Add(line);
+                        script += line + "\n";
+                        lineNumber++;
+                        numLine++;
+                    }
+
+                    file.Close();
+
+                    interp.Execute(script);
+                }
+                else {
+                    string result = cpp.RunInteractive(cmd, prompt => RequestHiddenInput(prompt));
+                    terminal.Send(result);
+                }
             }
 
             terminal.Open();
+            //Util.addTabPage(form, "Terminal", Terminal.console);
+            //Terminal.isInitialized = true;
             Util.Notify(form, "Success", "New Terminal opened successfully");
         }
 
@@ -640,65 +743,6 @@ namespace GeistStudio
 
             //String result = cpp.Run("script " + fileName);
             //terminal.Send(result);
-
-
-            string type = "script";
-            string scriptExt = "gsScript";
-
-            var interp = new Interpreter();
-            string script = "";
-            int numLine = 0;
-
-            if (fileName == "--example" || fileName == "-e")
-            {
-                interp.DownloadExample();
-                return;
-            }
-
-            StreamReader file = null;
-            bool isOpen = false;
-
-            try
-            {
-                file = new StreamReader(fileName);
-                isOpen = true;
-            }
-            catch
-            {
-                isOpen = false;
-            }
-
-            int dotIndex = fileName.LastIndexOf('.');
-            string ext = dotIndex >= 0 ? fileName.Substring(dotIndex + 1) : fileName;
-
-            if (ext != scriptExt)
-            {
-                Util.Notify(form, "Error", "Invalid file type for " + fileName);
-
-                if (isOpen)
-                    file.Close();
-            }
-
-            if (!isOpen)
-            {
-                Util.Notify(form, "Error", "Failed to open file " + fileName);
-            }
-
-            string line;
-            int lineNumber = 1;
-            _ = lineNumber; // kept for parity with the original (void)lineNumber;
-
-            while ((line = file.ReadLine()) != null)
-            {
-                interp.GeistScriptCode.Add(line);
-                script += line + "\n";
-                lineNumber++;
-                numLine++;
-            }
-
-            file.Close();
-
-            interp.Execute(script);
         }
 
 

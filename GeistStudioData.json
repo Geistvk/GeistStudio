@@ -216,6 +216,9 @@
         "new"
       ]
     },
+    "Settings": {
+      "TerminalRunCode": "script %fileName%"
+    },
     "About": {
       "Name": "GeistStudio",
       "License": [
